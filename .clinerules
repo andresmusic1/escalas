@@ -1,0 +1,1 @@
+You are running in a Windows environment using PowerShell as the default terminal. NEVER use Unix/Linux commands like `ls`, `grep`, `cat`, `wc`, `touch`, or `rm`. ALWAYS use the native PowerShell equivalents (e.g., `Get-ChildItem`, `Select-String`, `Get-Content`, `Measure-Object`, `New-Item`, `Remove-Item`).

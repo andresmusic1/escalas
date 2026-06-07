@@ -1,0 +1,28 @@
+
+CUANDO SE ESTÁ ACABANDO EL CONTEXTO DE 131K
+
+Estamos llegando al límite de contexto (131K) de esta sesión. Para poder continuar este proyecto en un chat nuevo sin perder nada de información, necesito que actualices el archivo `PROJECT_MEMORY.md` en la raíz del proyecto.
+
+1. **Estado Actualizado:** Qué acabamos de lograr en esta sesión exacta (qué bugs arreglamos, qué funciones nuevas implementamos).
+2. **Próximos Pasos (Pendientes):** Qué quedó a medias o cuál es exactamente la siguiente tarea que íbamos a hacer.
+3. **Reglas Intocables:** Asegúrate de mantener vivas las advertencias sobre NO usar rotación CSS en el SVG, mantener el array CHROMATIC_SCALE inmutable.
+
+Si ya lo hiciste ignora esta solicitud.
+
+Escribe la actualización pensando en que la leerá tu "yo del futuro" con un contexto totalmente en blanco. después de guardar no continúes trabajando más en esta sesión.
+
+Por favor, actualiza y depura, elimina código muerto del archivo pero manteniendo su excelente estructura actual
+
+
+
+CUANDO INICIAMOS NUEVO CONTEXTO DE 131K
+
+¡Hola! Vamos a continuar desarrollando nuestro proyecto musical "ESCALAS". Para arrancar esta nueva sesión con el contexto perfecto (131K) y sin que yo tenga que repetirte las cosas, necesito que ejecutes tu proceso de inicialización utilizando tus herramientas de lectura en este orden estricto:
+
+1. Lee detalladamente el archivo `PROJECT_MEMORY.md` y D:\PROYECTOS IA\ESCALAS\.clinerules en la raíz. 
+⚠️ **REGLA ESTRICTA DE AHORRO DE TOKENS:**
+NO leas ni uses la herramienta de lectura en los archivos fuente (`App.tsx`, `musicLogic.ts`, etc.) en este momento. Solo guíate por el Memory. Leerás el código fuente más adelante, únicamente cuando sea el momento de modificarlo.
+
+En qué habíamos quedado para continuar?
+
+

@@ -1,0 +1,711 @@
+@import "tailwindcss";
+
+/* Colores del tema */
+:root {
+  --color-background: #12161c;
+  --color-gold: #dfc47f;
+  --color-gold-dim: #a89560;
+  --color-red: #e53e3e;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #12161c !important;
+  color: #dfc47f !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  width: 100%;
+  max-width: 1200px;
+  padding: 2rem;
+}
+
+/* Animación para las notas */
+@keyframes pulse-red {
+  0% {
+    fill: #e53e3e;
+    filter: drop-shadow(0 0 8px rgba(229, 62, 62, 0.8));
+  }
+  100% {
+    fill: #dfc47f;
+    filter: drop-shadow(0 0 0px transparent);
+  }
+}
+
+.note-active {
+  animation: pulse-red 0.3s ease-out forwards;
+}
+
+/* Estilo para el selector de escalas */
+.scale-button {
+  transition: all 0.2s ease;
+}
+
+.scale-button:hover {
+  background-color: rgba(223, 196, 127, 0.15);
+  transform: scale(1.05);
+}
+
+.scale-button.active {
+  background-color: rgba(223, 196, 127, 0.25);
+  border-color: #dfc47f;
+  box-shadow: 0 0 10px rgba(223, 196, 127, 0.3);
+}
+
+/* Animación de pulso para el polígono al completar la escala */
+@keyframes polygonPulse {
+  0% {
+    strokeOpacity: 1;
+    strokeWidth: 4;
+    fillOpacity: 0.5;
+  }
+  50% {
+    strokeOpacity: 0.4;
+    strokeWidth: 2;
+    fillOpacity: 0.15;
+  }
+  100% {
+    strokeOpacity: 1;
+    strokeWidth: 2.5;
+    fillOpacity: 0.3;
+  }
+}
+
+/* Animación de brillo para el nombre de escala al completar */
+@keyframes scaleNameGlow {
+  0% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 4px rgba(223, 196, 127, 0.3));
+  }
+  40% {
+    opacity: 1;
+    filter: drop-shadow(0 0 16px rgba(223, 196, 127, 1)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.7));
+  }
+  100% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 12px rgba(223, 196, 127, 0.8)) drop-shadow(0 0 8px rgba(0, 0, 0, 0.7));
+  }
+}
+
+/* Animación de trazado neón para líneas del polígono */
+@keyframes neonTrace {
+  0% {
+    strokeDashoffset: var(--trace-start);
+  }
+  100% {
+    strokeDashoffset: 0;
+  }
+}
+
+/* ============================================================
+   v9.3 — Mejoras Visuales: Clases CSS para layout y jerarquía
+   ============================================================ */
+
+/* --- Tarjetas de sección (reemplazo de tablas con bordes dorados) --- */
+.section-card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(223, 196, 127, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+/* --- Tarjeta con dropdown (v9.4): overflow visible para que el dropdown se muestre --- */
+.section-card.has-dropdown {
+  overflow: visible;
+  position: relative;
+  z-index: 50;
+}
+
+.section-card-accent-red {
+  border-color: rgba(229, 62, 62, 0.3);
+  background: rgba(229, 62, 62, 0.03);
+}
+
+/* --- Barra de Tempo integrada --- */
+.tempo-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  border: 1px solid rgba(223, 196, 127, 0.1);
+  flex-wrap: wrap;
+}
+
+.bpm-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #dfc47f;
+  min-width: 50px;
+  text-align: center;
+}
+
+.badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* --- Escala Actual multi-línea --- */
+.scale-name-main {
+  font-size: 18px;
+  font-weight: 700;
+  color: #dfc47f;
+  margin-bottom: 4px;
+}
+
+.scale-formula {
+  color: #a89560;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.scale-notes-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.scale-note-item {
+  padding: 2px 8px;
+  background: rgba(223, 196, 127, 0.1);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  color: #e5e7eb;
+}
+
+.scale-intervals {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scale-interval-item {
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 13px;
+  color: #a89560;
+}
+
+/* --- Tabs de categoría animados --- */
+.category-tab {
+  position: relative;
+  transition: all 0.3s ease;
+  border-radius: 11px;
+}
+
+.category-tab.active {
+  background: #dfc47f;
+  color: #12161c;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(223, 196, 127, 0.3);
+}
+
+.category-tab:not(.active) {
+  background: transparent;
+  border: 1px solid rgba(223, 196, 127, 0.2);
+  color: #d1d5db;
+}
+
+.category-tab:not(.active):hover {
+  background: rgba(223, 196, 127, 0.1);
+  border-color: rgba(223, 196, 127, 0.4);
+}
+
+/* --- Botones de Modo (Escala/Acorde) --- */
+.mode-button {
+  transition: all 0.3s ease;
+  border-width: 2px;
+  font-weight: bold;
+  border-radius: 11px;
+}
+
+.mode-button.active-scale {
+  background: #dfc47f;
+  color: #12161c;
+  border-color: #dfc47f;
+  box-shadow: 0 0 15px rgba(223, 196, 127, 0.3);
+}
+
+.mode-button.active-chord {
+  background: #dfc47f;
+  color: #12161c;
+  border-color: #dfc47f;
+  box-shadow: 0 0 15px rgba(223, 196, 127, 0.3);
+}
+
+.mode-button.inactive {
+  background: #1a1d24;
+  color: #999;
+  border-color: #333;
+}
+
+.mode-button.inactive:hover {
+  background: #2a2d34;
+  color: #ccc;
+  border-color: #444;
+}
+
+/* --- Botones de Nota Raíz (C, C#, D, etc.) --- */
+.root-note-button {
+  transition: all 0.3s ease;
+  font-weight: bold;
+  border-radius: 11px;
+}
+
+.root-note-button.active {
+  background: var(--color-gold);
+  color: var(--color-background);
+  box-shadow: 0 0 15px rgba(223, 196, 127, 0.6);
+  transform: scale(1.05);
+}
+
+.root-note-button.inactive {
+  background: rgba(31, 38, 51, 0.8);
+  color: #a0a8b8;
+  border: 1px solid rgba(55, 65, 81, 1);
+}
+
+.root-note-button.inactive:hover {
+  background: rgba(55, 65, 81, 0.8);
+  color: var(--color-gold);
+  transform: translateY(-4px);
+  box-shadow: 0 0 12px rgba(223, 196, 127, 0.3);
+  border-color: rgba(223, 196, 127, 0.5);
+}
+
+/* --- Emojis flotantes arriba de botones --- */
+.emoji-badge {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  z-index: 10;
+}
+
+.emoji-scale {
+  background: #dfc47f;
+  color: #12161c;
+}
+
+.emoji-chord {
+  background: #dfc47f;
+  color: #12161c;
+}
+
+/* --- Selector de tipo de acorde (Tríada/Cuatríada) --- */
+.chord-type-selector {
+  display: flex;
+  gap: 8px;
+  background: #0d1015;
+  border-radius: 8px;
+  padding: 6px;
+  border: 1px solid #333;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 540px;
+}
+
+.chord-type-button {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.chord-type-button.active {
+  background: #60a5fa; /* Azul claro */
+  color: #12161c;
+  box-shadow: 0 2px 8px rgba(96, 165, 250, 0.3);
+}
+
+.chord-type-button.inactive {
+  background: transparent;
+  color: #999;
+}
+
+.chord-type-button.inactive:hover {
+  color: #ccc;
+  background: rgba(223, 196, 127, 0.05);
+}
+
+/* --- Botón Play principal --- */
+.play-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px; /* Reducido aún más */
+  padding: 4px; /* Reducido aún más */
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px; /* Reducido más */
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+.play-button:not(.playing) {
+  background: linear-gradient(135deg, #00cc66 0%, #00aa55 100%);
+  color: #000;
+  box-shadow: 0 0 12px rgba(0, 204, 102, 0.25), 0 4px 15px rgba(0, 204, 102, 0.15);
+}
+
+.play-button:not(.playing):hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 18px rgba(0, 204, 102, 0.35), 0 6px 20px rgba(0, 204, 102, 0.2);
+}
+
+.play-button.playing {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%);
+  color: white;
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.4), 0 4px 15px rgba(255, 107, 107, 0.2);
+}
+
+.play-button.playing:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 30px rgba(255, 107, 107, 0.6), 0 6px 20px rgba(255, 107, 107, 0.3);
+}
+
+.play-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.play-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* === Botón Play específico para Modo Acorde (1/4 tamaño) === */
+.chord-play-button {
+  padding: 2px !important; /* Reducido a 1/4 de 8px */
+  gap: 1px !important; /* Reducido a 1/4 de 4px */
+  font-size: 8px !important; /* Reducido significativamente */
+  border-radius: 6px;
+}
+
+.chord-play-button .play-icon {
+  margin-bottom: 0px;
+}
+
+.chord-play-button .play-text {
+  font-size: 7px !important; /* Texto muy pequeño */
+  line-height: 1;
+}
+
+.play-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.play-text {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* --- Fila de escala con micro-interacción --- */
+.scale-row {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.scale-row:hover {
+  transform: translateX(4px);
+  background: rgba(223, 196, 127, 0.08);
+}
+
+.scale-row.active {
+  border-left: 3px solid #dfc47f;
+  background: rgba(223, 196, 127, 0.15);
+  color: #dfc47f;
+  font-weight: 600;
+}
+
+/* --- Botón de reproducción con hover scale --- */
+.btn-play-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-play-hover:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(223, 196, 127, 0.3);
+}
+
+/* --- Notas del acorde como pills rojos --- */
+.chord-note-pill {
+  padding: 2px 8px;
+  background: rgba(229, 62, 62, 0.15);
+  border: 1px solid rgba(229, 62, 62, 0.3);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #e53e3e;
+}
+
+/* --- Layout grid de dos columnas --- */
+.two-column-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .two-column-layout {
+    grid-template-columns: 380px 1fr;
+  }
+}
+
+/* --- Contenedor de escalas con scroll interno --- */
+.scales-list-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(223, 196, 127, 0.3) transparent;
+}
+
+.scales-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scales-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scales-list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(223, 196, 127, 0.3);
+  border-radius: 3px;
+}
+
+/* --- Separador visual entre categorías --- */
+.category-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(223, 196, 127, 0.2), transparent);
+  margin: 8px 0;
+}
+
+/* --- Estilos para select y option en modo dark --- */
+select {
+  background: #1a1d24;
+  color: #dfc47f;
+}
+
+select option {
+  background: #1a1d24;
+  color: #dfc47f;
+}
+
+select option:hover {
+  background: #2a2d34;
+  color: #dfc47f;
+}
+
+select option:checked {
+  background: #2a2d34;
+  color: #dfc47f;
+}
+
+/* ============================================================
+   v9.3 — Responsive Breakpoints
+   ============================================================ */
+
+/* Desktop grande */
+@media (min-width: 1400px) {
+  #root {
+    max-width: 1400px;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  #root {
+    max-width: 100%;
+    padding: 1rem;
+  }
+  
+  .two-column-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Móvil */
+@media (max-width: 640px) {
+  #root {
+    padding: 0.75rem;
+  }
+  
+  h1 {
+    font-size: 28px !important;
+  }
+  
+  .tempo-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .scales-list-scroll {
+    max-height: 200px;
+  }
+}
+
+/* ============================================================
+   Dropdown Custom de Escalas Disponibles (v9.4)
+   ============================================================ */
+
+/* === Contenedor del dropdown de escalas === */
+.scale-dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+/* === Barra principal del selector de escala (estilo categoría activa) === */
+.scale-selector-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #dfc47f;
+  color: #12161c;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(223, 196, 127, 0.3);
+  font-size: 14px;
+  user-select: none;
+  width: 100%;
+  text-align: left;
+  border: none;
+  outline: none;
+}
+
+.scale-selector-bar:hover {
+  background: #e8d5a0;
+  box-shadow: 0 4px 12px rgba(223, 196, 127, 0.4);
+}
+
+.scale-selector-bar .chevron-icon {
+  transition: transform 0.2s ease;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.scale-selector-bar.open .chevron-icon {
+  transform: rotate(180deg);
+}
+
+/* === Lista desplegable de opciones (v9.4) === */
+.scale-dropdown-list {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(223, 196, 127, 0.2);
+  border-radius: 12px;
+  max-height: calc(40px * 14); /* 14 filas visibles */
+  overflow-y: auto;
+  padding: 4px;
+  animation: dropdownFadeIn 0.15s ease-out;
+  backdrop-filter: blur(8px);
+  margin-top: 4px;
+}
+
+/* === Contenedor del dropdown de escalas (v9.4) === */
+.scale-dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+/* Scrollbar personalizado para el dropdown */
+.scale-dropdown-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scale-dropdown-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+}
+
+.scale-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(223, 196, 127, 0.3);
+  border-radius: 3px;
+}
+
+.scale-dropdown-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(223, 196, 127, 0.5);
+}
+
+/* === Animación de apertura del dropdown === */
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Opción individual de escala en el dropdown === */
+.scale-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  background: transparent;
+  color: #dfc47f;
+  font-family: inherit;
+}
+
+/* Opción no seleccionada (inactiva) */
+.scale-dropdown-item:not(.selected):hover {
+  background: rgba(223, 196, 127, 0.1);
+}
+
+/* Opción seleccionada (escala activa) */
+.scale-dropdown-item.selected {
+  background: #dfc47f;
+  color: #12161c;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(223, 196, 127, 0.3);
+}
+
+.scale-dropdown-item.selected:hover {
+  background: #e8d5a0;
+}
