@@ -1,12 +1,123 @@
 # 🎵 Escalas Musicales Interactivas - PROJECT MEMORY
 
-> **Última actualización:** 2026-06-08 (Sesión: v21.6 — Fix ruta reverb campana + parámetros catedral)
-> **Versión del proyecto:** v21.6
-> **Estado tests:** ✅ TypeScript compilation OK | ✅ 700/700 enharmony | ✅ 256/256 chords
+> **Última actualización:** 2026-06-08 (Sesión: v22.2 — Fix renderizado quiz visual + audio quiz pendiente)
+> **Versión del proyecto:** v22.2
+> **Estado tests:** ✅ TypeScript compilation OK | ⚠️ Quiz auditivo no funciona
 
 ---
 
 ## 📌 ESTADO ACTUAL DEL PROYECTO (Junio 2026)
+
+### 🟢 v22.1 — Fix Bug Renderizado Modo Quiz + Limpieza Documentación
+**Archivo:** [`src/components/QuizPanel.tsx`](src/components/QuizPanel.tsx), [`src/App.tsx`](src/App.tsx)
+
+#### Problema corregido: Click en "Modo Quiz" cerraba la aplicación (pantalla blanca)
+**Causa raíz:** Al hacer click en el toggle de Modo Quiz, `setQuizState(null)` se ejecutaba inmediatamente. El componente QuizPanel recibía `quizState={quizState!}` (null), pero su interfaz esperaba `QuizState` completo. Acceso a `quizState.isSessionComplete` causaba TypeError que rompía todo el renderizado React.
+
+**Fix aplicado:**
+1. ✅ **Props actualizadas en QuizPanel:** `quizState: QuizState | null` (acepta null)
+2. ✅ **Early-return para null:** `if (!quizState) { return <InitialScreen ... />; }` — muestra pantalla de configuración cuando no hay sesión activa
+3. ✅ **App.tsx:** Removido non-null assertion (`quizState!` → `quizState`)
+
+**Flujo corregido:**
+1. Click "🧠 Modo Quiz" → `appMode='quiz'`, `quizState=null`
+2. QuizPanel recibe null → muestra InitialScreen (nombre + cantidad + categoría)
+3. Usuario hace click en "INICIAR QUIZ" → `generateQuizSession()` crea la sesión
+4. Preguntas se renderizan correctamente
+
+**Archivos modificados:**
+- `src/components/QuizPanel.tsx` — Props `quizState: QuizState | null`, early-return para null (línea ~353)
+- `src/App.tsx` — `quizState={quizState}` sin assertion (línea 728)
+
+---
+
+### 🟡 v22.2 — Fix Renderizado Quiz Visual + Círculo 3x Tamaño (Audio Quiz Pendiente)
+**Archivos:**
+- [`src/components/CircleOfNotes.tsx`](src/components/CircleOfNotes.tsx) — Props escalables, hideCenterText
+- [`src/components/QuizPanel.tsx`](src/components/QuizPanel.tsx) — Círculo ampliado para pregunta visual
+
+#### Cambios implementados:
+1. ✅ **Ocultar nombre de escala/acorde en centro (preguntas visuales):** Nueva prop `hideCenterText` en CircleOfNotes. Cuando true, no renderiza el texto central del círculo cromático.
+2. ✅ **Círculo 3x más grande:** Nueva prop `scaleCircle={3}` para pregunta visual. Calcula valores efectivos escalados (effectiveSize, effectiveCenter, effectivePolygonRadius, etc.). SVG viewBox se adapta dinámicamente.
+3. ✅ **EnharmonicNote actualizado:** Recibe props de escala (centerX, centerY, textRadius, fontSize) para renderizar notas correctamente a cualquier tamaño.
+
+#### ⚠️ PROBLEMA PENDIENTE: Audio Quiz no funciona
+
+**Síntoma:** En las preguntas auditivas del modo quiz, al hacer click en "▶ Reproducir escala/acorde", la UI muestra "Reproduciendo..." pero NO se escucha ningún sonido.
+
+**Archivos afectados:**
+- `src/lib/quizAudio.ts` — Funciones `playScaleForQuiz()` y `playChordForQuiz()`
+- `src/components/QuizPanel.tsx` — Función `handlePlayAudio()` (línea ~420)
+
+**Intentos de fix realizados:**
+1. Agregado `Tone.start()` en ambas funciones (requerido por navegadores tras interacción usuario)
+2. Agregado `Tone.Transport.stop()` y `Tone.Transport.cancel()` al inicio para limpiar estado previo
+3. Envié `Tone.start()` dentro de `.then()` para asegurar AudioContext listo
+4. Corregí `Tone.Transport.start(offset)` con parámetros correctos
+
+**Estado:** Sin resolver. Necesita debug adicional:
+- Verificar si Tone.Transport está en estado correcto (running/paused/stopped)
+- Verificar si el synth se crea y conecta correctamente a Destination
+- Comparar con implementación de App.tsx que SÍ funciona (usa audioEngineRef.current + Tone.Part vs triggerAttackRelease directo)
+- Posible problema: tiempos absolutos en triggerAttackRelease no funcionan como esperado cuando Transport está pausado
+
+**Sugerencia para próxima sesión:** Migrar a usar `Tone.Part` como hace el modo normal en App.tsx, o verificar que los tiempos de triggerAttackRelease sean relativos al Transport start.
+
+---
+
+### 🟢 v22.0 — Modo Quiz Interactivo
+**Archivos:**
+- [`src/lib/quizLogic.ts`](src/lib/quizLogic.ts) — Lógica principal del quiz
+- [`src/lib/quizAudio.ts`](src/lib/quizAudio.ts) — Reproducción audio para preguntas auditivas
+- [`src/components/QuizPanel.tsx`](src/components/QuizPanel.tsx) — Panel UI principal
+- [`src/components/QuizResult.tsx`](src/components/QuizResult.tsx) — Resultados finales
+- [`src/App.tsx`](src/App.tsx) — Integración con toggle de modos
+
+#### Nueva arquitectura de 3 modos:
+1. **Modo Escala:** Visualizar y escuchar escalas (existente)
+2. **Modo Acorde:** Visualizar y escuchar acordes (existente)
+3. **Modo Quiz:** Test interactivo visual/auditivo (nuevo v22.0)
+
+#### Toggle de modos:
+- Botones "🎹 Modo Escala", "🎵 Modo Acorde", "🧠 Modo Quiz" debajo del header
+- Estado `appMode`: `'scale' | 'chord' | 'quiz'`
+- Renderizado condicional: QuizPanel vs UI normal
+
+#### Sistema de preguntas:
+- **Tipo visual:** Muestra escala/acorde en el círculo cromático, 4 opciones para identificar
+- **Tipo auditiva:** Solo audio (sin círculo), usuario identifica por oído
+- **Patrón alternado fijo:** visual → auditiva → visual → auditiva...
+- **Cantidad configurable:** 5, 10 o 20 preguntas
+
+#### Sistema de puntuación:
+- **Máximo:** 10 puntos por pregunta
+- **Ayudas visuales:** "🔊 Escuchar" cuesta -4 puntos (6 restantes)
+- **Ayudas auditivas:** Descripción (-2), Contexto (-2), Grados (-2), combinables
+- **Sin ayuda:** 10 puntos si acierta, 0 si falla
+
+#### Flujo del Quiz:
+1. Pantalla inicial → Input nombre + seleccionar cantidad (5/10/20) + categoría (escala/acorde)
+2. Preguntas alternadas con feedback ✓/✗ inmediato
+3. Pantalla final → Puntuación total, mensaje según rendimiento, desglose expandible
+
+#### Características técnicas:
+- `generateQuizSession()` genera preguntas con distractores del mismo tipo pero diferente raíz
+- `answerQuestion()` procesa respuesta y calcula puntos con penalizaciones
+- Audio quiz usa Tone.PolySynth directamente (no comparte AudioEngine singleton)
+- Escalas disponibles: ~48 escalas × 12 raíces = miles de combinaciones posibles
+
+#### Archivos modificados en esta sesión:
+- `src/lib/quizLogic.ts` — Nueva lógica completa (~570 líneas)
+- `src/lib/quizAudio.ts` — Reproducción audio quiz (~180 líneas)
+- `src/components/QuizPanel.tsx` — Panel UI principal (~660 líneas)
+- `src/components/QuizResult.tsx` — Resultados finales (~200 líneas)
+- `src/App.tsx` — Integración con appMode state y toggle buttons
+- `PROJECT_MEMORY.md` — Documentación
+- `AGENTS.md` — Actualización de key files
+
+---
+
+### 🟢 v21.7 — Botón Exportar WAV Separado del Play
 
 ### 🟢 v21.6 — Fix Ruta Reverb Campana + Parámetros Catedral Ajustados
 **Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
@@ -32,6 +143,30 @@
 #### Archivos modificados en esta sesión:
 - `src/lib/audioExport.ts` — Fix conexión gainNode→convolver, removido湿Mix de impulse response, parámetros catedral ajustados
 - `PROJECT_MEMORY.md` — Documentación
+
+### 🟢 v21.7 — Botón Exportar WAV Separado del Play
+**Archivo:** [`src/App.tsx`](src/App.tsx)
+
+#### Problema: El botón "Exportar Acorde/Escala WAV" estaba visualmente pegado al botón Play dentro del mismo contenedor `tempo-bar`.
+
+#### Solución:
+- Movido el botón Exportar WAV fuera de `tempo-bar` a un nuevo contenedor `<div className="flex justify-center mt-4">` separado
+- Margen aumentado de `mt-2` a `mt-4` para mayor distancia visual
+- Padding del botón ajustado de `px-4 py-2` a `px-5 py-2.5` para mejor proporción
+- Texto aumentado de `text-xs` a `text-sm` para legibilidad
+- Comentario actualizado: "v17.0 — consolidado" → "v21.7 — separado del Play"
+
+#### Resultado visual:
+```
+[Tempo Bar]
+  Tempo | BPM | Slider | Play/Stop
+</tempo-bar>
+
+[Mt-4 separación]
+  [Exportar WAV] (centrado)
+
+[Audio Section]
+  Volumen | Sonido
 
 ### 🟢 v21.5 — ConvolverNode SHARED para Reverb Campana
 **Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
@@ -281,10 +416,6 @@ const toneJsOctave = 4;
 | v19.0 | Tone.Part scheduling — mute | ❌ Tone.js v15.x incompatible con Offline |
 | **v20.0** | Web Audio API nativa (OscillatorNode) | ✅ Audio audible funcional |
 | **v20.1** | + `chords[]` para acordes simultáneos + presets instrumento | ✅ Triadas y cuatríadas correctas |
-
-### ⏳ PENDIENTE PARA PRÓXIMA SESIÓN
-- **Revisar exportación de cuatrías:** Verificar que las 4 notas del arpegio + acorde de 4 notas suenan correctamente
-- Validar que el duration del impacto coincide con la reproducción en vivo
 
 ### 🟢 v17.0 — Exportar Audio a WAV (Tone.Offline) — Estructura base
 **Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts), [`src/App.tsx`](src/App.tsx)
@@ -578,7 +709,6 @@ const DIATONIC_MAP = { 0: 0, 2: 1, 3: 2, 7: 4, 8: 5 };
 
 ### Audio y Sincronización
 - Sincronización rítmica: TODAS las transiciones usan `currentDuration` (BPM-based).
-- **UI sync usa setTimeout (NO Tone.Draw)** — deuda técnica documentada en [`App.tsx`](src/App.tsx:184). Futuro: migrar a `Tone.Draw`.
 - Control de volumen: `Tone.Destination.volume.value = volume` dentro de un useEffect.
 
 ### Reglas de Aislamiento Modo Acorde
@@ -681,7 +811,6 @@ SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas mus
 - Polígono acorde neón: línea ~567, fill=url(#chordGradient) línea ~555
 
 **Características reales de samples (v16.1):** `public/samples/pad piano/` — 48kHz/mono/vorbis, duración ~1.2-2.0s, bitrate ~60kbps
-**Bug Documentado (no fixeado):** ROOT_NOTES_SOSTENIDOS index bug en [`App.tsx:394`](src/App.tsx:394) — botón G# usa `[1]` en lugar de `[2]` para rootIndex 8.
 
 ---
 
@@ -698,10 +827,98 @@ Usar ffprobe para verificar características técnicas:
 6. **Siempre usar `resolveEnharmonicName()`** para cualquier variante enarmónica.
 7. **NUNCA inventar datos musicales** — preguntar al usuario, usar fuentes verificadas.
 
-## 🏁 CIERRE DE SESIÓN — 2026-06-08 (v21.6)
+## 🏁 CIERRE DE SESIÓN — 2026-06-08 (v22.1)
+- **Versión alcanzada:** v22.1
+- **Cambio principal:** Fix bug renderizado Modo Quiz (quizState=null crash) + limpieza documentación deuda técnica
+- **Tests:** ✅ TypeScript compilation OK | ✅ 700/700 enharmony | ✅ 256/256 chords
+- **Archivos modificados:** `src/components/QuizPanel.tsx`, `src/App.tsx`, `PROJECT_MEMORY.md`, `AGENTS.md`
+- **Estado:** ✅ Modo Quiz funcional — InitialScreen se muestra correctamente al entrar
+- **Listo para commit** — mensaje: "fix: QuizPanel acepta quizState|null, muestra InitialScreen (v22.1)"
+
+---
+
+## 📋 PRÓXIMOS PASOS PARA NUEVA SESIÓN
+
+### Tareas pendientes (priorizadas):
+1. **NUEVO: Agregar Error Boundary para QuizPanel** — Actualmente si QuizPanel falla en cualquier otro punto, la app entera se rompe. Implementar React Error Boundary para aislamiento.
+2. **Validar exportación WAV de cuatríadas en producción** — Verificar que las 4 notas + acorde simultáneo suenan correctamente con ambos instrumentos (proPiano y campana)
+3. **Migrar setTimeout a Tone.Draw** — En [`App.tsx:184-191`](src/App.tsx:184), la sincronización visual usa `setTimeout` (technical debt). Futuro migration target: `Tone.Draw` para precision en hardware lento.
+4. **Considerar agregar test framework** — Actualmente no hay automated tests. Evaluar Vitest/Jest para regression detection.
+
+### Bugs documentados pero NO corregidos:
+- ⚠️ **ROOT_NOTES_SOSTENIDOS index bug (v8.2):** `AGENTS.md` menciona que G# button en [`App.tsx:394`](src/App.tsx:394) usa `ROOT_NOTES_SOSTENIDOS[1]` — debe verificarse si aún aplica. (Nota: ya verificado que no hay referencia incorrecta actual).
+
+### Recordatorios críticos:
+- **SIEMPRE** probar el Modo Quiz después de cualquier cambio en App.tsx o QuizPanel.tsx
+- **NUNCA** cambiar `quizState` a null sin antes verificar si QuizPanel lo está usando
+- **MANTENER** la lógica del Modo Escala congelada — no modificar `isPlaying`, `activeLineIndex`, etc.
+
+## 🔄 PROMPT DE TRANSFERENCIA PARA NUEVO CHAT
+
+Si continúas en un nuevo chat, copia este archivo PROJECT_MEMORY.md completo.
+
+### Resumen Rápido para la IA:
+SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas musicales SVG interactivo con modo escala y modo acorde + Modo Quiz + exportar audio a WAV.
+
+**Estado Actual (v22.1):**
+
+**AudioEngine v17.1:** 2 instrumentos Synth:
+- `proPiano`: PolySynth(triangle) → Filter(lowpass 7kHz) → Compressor(-24dB/3:1) → FeedbackDelay(0.143s, wet 7%) + Reverb(1.8s)
+- `campana`: PolySynth(sine) → Filter(lowpass 3.5kHz Q:0.4) → Reverb(3.2s/catedral)
+
+**Exportar Audio v20.1:** Módulo `src/lib/audioExport.ts` con Web Audio API nativa (OfflineAudioContext + OscillatorNode)
+- Funciones: `exportScale()`, `exportChord()`, `audioBufferToWav()`
+- Formato: WAV PCM 16-bit, 48kHz sample rate
+- Botón "Exportar WAV" en UI debajo de Play/Stop (separado v21.7)
+
+**Modo Quiz v22.0+v22.1:** Toggle 3 modos — Escala/Acorde/Quiz
+- Preguntas visuales: círculo cromático muestra escala/acorde, 4 opciones
+- Preguntas auditivas: solo audio, sin visualización
+- Patrón alternado fijo: visual → auditiva → visual...
+- Puntuación: 10 pts máximo, penalizaciones por ayudas (-2 a -4)
+- Pantalla inicial con nombre + cantidad (5/10/20) + categoría
+- **v22.1 FIX:** QuizPanel acepta `quizState: QuizState | null`, muestra InitialScreen cuando es null
+
+**Music:** ~48 escalas con enarmonía perfecta — protocolo heptatónico (algorítmico), OCTATONIC_MAPPINGS (pivotes), diccionarios para hexatónicas/simétricas
+
+**UI (v22.0):** Toggle buttons debajo del header (🎹 Escala / 🎵 Acorde / 🧠 Quiz). Modo normal: left panel con Categorías → Escalas → Raíz → Audio → Tempo+Play → Exportar WAV
+
+**Samples v16.1:** Ruta `/samples/pad piano/`, 48kHz mono Vorbis, duración corta (~2s), release ajustado a 1.5s
+
+### ⚠️ Reglas Intocables (NO VIOLAR):
+1. **MODO ESCALA NO TOCAR** — Congelado y funcionando perfectamente. Bajo ninguna circunstancia modificar `isPlaying`, `activeLineIndex`.
+2. **Modo Acorde aislado:** Todo cambio en modo acorde debe estar en estados con prefijo `chord*` o `isChord*`.
+3. **NO usar rotación CSS en SVG** — posicionamiento con matemática trigonométrica en CircleOfNotes.tsx.
+4. **CHROMATIC_SCALE inmutable** — solo las etiquetas visuales pueden cambiar variantes enarmónicas.
+5. **Tailwind v4 NO genera grid/gap** — usar inline styles: `style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px' }}`.
+6. **Siempre usar `resolveEnharmonicName()`** para cualquier variante enarmónica.
+7. **NUNCA inventar datos musicales** — preguntar al usuario, usar fuentes verificadas.
+8. **QuizPanel necesita quizState !== null** antes de acceder a propiedades — siempre verificar con early-return.
+
+### 📁 Archivos Clave:
+| Archivo | Propósito | Líneas aprox. |
+|---------|-----------|---------------|
+| [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts) | Cerebro musical: 39+ escalas, enarmonía, acordes, intervalos, SCALE_EXTENDED_INFO | ~1816 |
+| [`src/lib/audioEngine.ts`](src/lib/audioEngine.ts) | AudioEngine singleton con Tone.js: PolySynth + efectos (2 instrumentos) | ~361 |
+| [`src/lib/audioExport.ts`](src/lib/audioExport.ts) | Exportar audio a WAV con Web Audio API nativa | ~200 |
+| [`src/lib/quizLogic.ts`](src/lib/quizLogic.ts) | Quiz lógica principal: generación preguntas, scoring, tipos | ~570 |
+| [`src/lib/quizAudio.ts`](src/lib/quizAudio.ts) | Reproducción audio quiz con Tone.PolySynth directo | ~180 |
+| [`src/components/CircleOfNotes.tsx`](src/components/CircleOfNotes.tsx) | SVG interactivo con matemática trigonométrica, filtros neón | ~734 |
+| [`src/components/QuizPanel.tsx`](src/components/QuizPanel.tsx) | Panel UI principal del Quiz — acepta quizState: QuizState \| null | ~660 |
+| [`src/components/QuizResult.tsx`](src/components/QuizResult.tsx) | Resultados finales con puntuación y desglose expandible | ~200 |
+| [`src/App.tsx`](src/App.tsx) | Componente principal + audio engine + UI + appMode toggle (scale/chord/quiz) | ~1216 |
+| [`src/test-enharmony.ts`](src/test-enharmony.ts) | Validación enarmonía: 166 tests (12 raíces × escalas clave) | ~804 |
+| [`src/index.css`](src/index.css) | Tailwind v4 + custom properties + animaciones CSS | - |
+
+### 🎨 Constantes CSS:
+```css
+--color-background: #12161c;
+--color-gold: #dfc47f;
+--color-red: #e53e3e;
+```
+
+### 🏁 Cierre de sesión anterior (v21.6):
 - **Versión alcanzada:** v21.6
-- **Cambio principal:** Fix ruta de conexión reverb campana (gainNode→convolver en lugar de oscillator→convolver) + parámetros catedral ajustados
+- **Cambio principal:** Fix ruta de conexión reverb campana (gainNode→convolver) + parámetros catedral ajustados
 - **Tests:** ✅ TypeScript compilation OK
-- **Archivos modificados:** `src/lib/audioExport.ts`, `PROJECT_MEMORY.md`
 - **Estado:** ✅ Cola de resonancia eterna resuelta — reverb catedral funcional con valores reducidos (decay=2.0s, wet=0.6)
-- **Listo para commit** — mensaje: "fix: gainNode→convolver ruta reverb campana + parámetros catedral ajustados (v21.6)"

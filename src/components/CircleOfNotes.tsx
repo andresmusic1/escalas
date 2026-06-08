@@ -47,8 +47,12 @@ const EnharmonicNote: React.FC<{
   rootIndex: number;
   isInScale: boolean;              // ← NUEVA PROP: indica si la nota pertenece a la escala
   onHover: (noteIdx: number | null) => void;
-}> = ({ label, isActive, isHovered, noteIdx, rootIndex, isInScale, onHover }) => {
-  const pos = getRotatedNotePosition(noteIdx, rootIndex, CENTER, CENTER, NOTE_TEXT_RADIUS);
+  centerX: number;
+  centerY: number;
+  textRadius: number;
+  fontSize: number;
+}> = ({ label, isActive, isHovered, noteIdx, rootIndex, isInScale, onHover, centerX, centerY, textRadius, fontSize }) => {
+  const pos = getRotatedNotePosition(noteIdx, rootIndex, centerX, centerY, textRadius);
   
   const isEmphasized = isActive || isHovered;
   const baseColor = isInScale ? COLOR_IN_SCALE : COLOR_OUT_OF_SCALE;
@@ -175,6 +179,12 @@ interface CircleOfNotesProps {
   isChordPlaying?: boolean;
   /** Callback cuando se hace clic en una nota del círculo (para seleccionar acorde) */
   onNoteClick?: (noteIndex: number) => void;
+
+  // === v22.1: Modo Quiz — ocultar texto central para pregunta visual ===
+  /** Oculta el nombre de la escala/acorde en el centro del círculo */
+  hideCenterText?: boolean;
+  /** Factor de escala para el círculo (1 = normal, 3 = grande para quiz visual) */
+  scaleCircle?: number;
   
   // === v17.0: Props para Recorrido Neón del Acorde ===
   /** Índices de segmentos del acorde ya trazados */
@@ -257,11 +267,21 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
   isChordMode = false,
   isChordPlaying = false,
   onNoteClick,
+  hideCenterText = false,
+  scaleCircle = 1,
   // === v17.0: Props para Recorrido Neón del Acorde ===
   chordDrawnLineIndices = [],
   chordActiveLineIndex = -1,
   chordPolygonComplete = false, // v13.3: polígono persistente como marca de agua
 }) => {
+  
+  // === v22.1: Escala dinámica para modo quiz (3x tamaño) ===
+  const effectiveSize = SVG_SIZE * scaleCircle;
+  const effectiveCenter = effectiveSize / 2;
+  const effectiveCircleRadius = CIRCLE_RADIUS * scaleCircle;
+  const effectivePolygonRadius = POLYGON_RADIUS * scaleCircle;
+  const effectiveNoteTextRadius = NOTE_TEXT_RADIUS * scaleCircle;
+  const effectiveFontSize = Math.round(NOTE_FONT_SIZE * scaleCircle);
   
   // Resetear animación de pulso cuando polygonComplete cambia a false
   const [pulseKey, setPulseKey] = useState<number>(0);
@@ -283,10 +303,10 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
     y: Math.round(pos.y * 10 ** ROUND_DECIMALS) / 10 ** ROUND_DECIMALS,
   });
 
-  // Generar las coordenadas para el polígono de la escala (con rotación)
+  // Generar las coordenadas para el polígono de la escala (con rotación y escala)
   const polygonPoints = scaleIndices
     .map((noteIdx) => {
-      const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS));
+      const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
       return `${pos.x},${pos.y}`;
     })
     .join(' ');
@@ -302,8 +322,8 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
   for (let i = 0; i < scaleIndices.length; i++) {
     const fromIdx = scaleIndices[i];
     const toIdx = scaleIndices[(i + 1) % scaleIndices.length];
-    const start = roundPos(getRotatedNotePosition(fromIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS));
-    const end = roundPos(getRotatedNotePosition(toIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS));
+    const start = roundPos(getRotatedNotePosition(fromIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
+    const end = roundPos(getRotatedNotePosition(toIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
     const dx = end.x - start.x;
     const dy = end.y - start.y;
     const length = Math.sqrt(dx * dx + dy * dy);
@@ -323,10 +343,10 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
       const fromIdx = chordNotes[i];
       const toIdx = chordNotes[(i + 1) % chordNotes.length];
       const start = roundPos(
-        getRotatedNotePosition(fromIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS)
+        getRotatedNotePosition(fromIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius)
       );
       const end = roundPos(
-        getRotatedNotePosition(toIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS)
+        getRotatedNotePosition(toIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius)
       );
       const dx = end.x - start.x;
       const dy = end.y - start.y;
@@ -396,11 +416,11 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
       ? 'drop-shadow(0 0 4px rgba(223, 196, 127, 0.25))'
       : 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.7))';
 
-  // Generar las líneas que conectan cada nota adyacente del círculo (borde dorado)
+  // Generar las líneas que conectan cada nota adyacente del círculo (borde dorado) — con escala
   const circleLines = CHROMATIC_SCALE.map((_, i) => {
     const nextIdx = (i + 1) % 12;
-    const currentPos = getRotatedNotePosition(i, rootIndex, CENTER, CENTER, CIRCLE_RADIUS);
-    const nextPos = getRotatedNotePosition(nextIdx, rootIndex, CENTER, CENTER, CIRCLE_RADIUS);
+    const currentPos = getRotatedNotePosition(i, rootIndex, effectiveCenter, effectiveCenter, effectiveCircleRadius);
+    const nextPos = getRotatedNotePosition(nextIdx, rootIndex, effectiveCenter, effectiveCenter, effectiveCircleRadius);
     
     return (
       <line
@@ -445,6 +465,10 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
           rootIndex={rootIndex}
           isInScale={isInScale}
           onHover={(idx) => setHoveredNoteIdx(idx)}
+          centerX={effectiveCenter}
+          centerY={effectiveCenter}
+          textRadius={effectiveNoteTextRadius}
+          fontSize={effectiveFontSize}
         />
       </g>
     );
@@ -455,7 +479,7 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
       {/* SVG con posiciones calculadas dinámicamente por getRotatedNotePosition() */}
       {/* La raíz siempre queda a las 12 en punto sin necesidad de rotación CSS */}
       <svg
-        viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
+        viewBox={`0 0 ${effectiveSize} ${effectiveSize}`}
         width="100%"
         height="100%"
         xmlns="http://www.w3.org/2000/svg"
@@ -557,7 +581,7 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
             <polygon
               points={chordNotes
                 .map((noteIdx) => {
-                  const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS));
+                  const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
                   return `${pos.x},${pos.y}`;
                 })
                 .join(' ')}
@@ -576,7 +600,7 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
               points={chordNotes
                 .map((noteIdx) => {
                   const pos = roundPos(
-                    getRotatedNotePosition(noteIdx, rootIndex, CENTER, CENTER, POLYGON_RADIUS)
+                    getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius)
                   );
                   return `${pos.x},${pos.y}`;
                 })
@@ -598,110 +622,112 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
 
           {/* === v18.3: Capas rojas eliminadas — solo neón dorado + relleno azul (limpio) === */}
 
-          {/* Nombre del acorde o escala en el centro */}
-          <g
-            style={{
-              animation: polygonComplete ? 'scaleNameGlow 0.8s ease-out' : 'none',
-            }}
-          >
-            {(() => {
-              // v12.0: Si hay acorde seleccionado, mostrar nombre del acorde + grado
-              if (chordName && chordDegree) {
-                return (
-                  <>
-                    {/* Grado romano sobre el nombre del acorde */}
-                    <text
-                      x={CENTER}
-                      y={CENTER - 30}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill="#ffffff"
-                      fontSize="20"
-                      fontWeight="bold"
-                      className="select-none"
-                      style={{
-                        fontFamily: 'Georgia, serif',
-                        filter: 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.5))',
-                      }}
-                    >
-                      {chordDegree}
-                    </text>
-                    {/* Nombre del acorde */}
-                    <text
-                      x={CENTER}
-                      y={CENTER + 5}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill={CHORD_NAME_COLOR}
-                      fontSize={SCALE_NAME_FONT_SIZE}
-                      fontWeight="600"
-                      opacity={isChordPlaying ? 1 : 0.95}
-                      className="select-none"
-                      style={{
-                        fontFamily: 'Georgia, serif',
-                        filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.3)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.6))',
-                      }}
-                    >
-                      {chordName}
-                    </text>
-                    {/* Nota del acorde debajo */}
-                    <text
-                      x={CENTER}
-                      y={CENTER + 35}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill="#ffffff"
-                      fontSize="14"
-                      opacity={0.85}
-                      className="select-none"
-                      style={{
-                        fontFamily: 'Georgia, serif',
-                      }}
-                    >
-                      {chordNotes?.map((idx, i) => {
-                        // ✅ v15.2: Usar chordNoteNames si disponible (con contexto enarmónico correcto)
-                        const noteName = chordNoteNames?.[i] ?? CHROMATIC_SCALE[idx];
-                        return noteName + (i < chordNotes.length - 1 ? ' • ' : '');
-                      })}
-                    </text>
-                  </>
-                );
-              }
-              
-              // Comportamiento normal: mostrar nombre de la escala
-              const lines = getScaleNameLines(scaleName);
-              const lineHeight = SCALE_NAME_FONT_SIZE * 1.2;
-              const totalHeight = lines.length * lineHeight;
-              const startY = CENTER - totalHeight / 2 + lineHeight / 2;
-              
-              return lines.map((line, idx) => (
-                <text
-                  key={idx}
-                  x={CENTER}
-                  y={startY + idx * lineHeight}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fill="#F5E6C8"
-                  fontSize={SCALE_NAME_FONT_SIZE}
-                  fontWeight="light"
-                  opacity={scaleTextOpacity}
-                  className="select-none"
-                  style={{
-                    fontFamily: 'Georgia, serif',
-                    filter: scaleTextFilter,
-                  }}
-                >
-                  {line}
-                </text>
-              ));
-            })()}
-          </g>
+          {/* Nombre del acorde o escala en el centro (oculto en modo quiz visual) */}
+          {!hideCenterText && (
+            <g
+              style={{
+                animation: polygonComplete ? 'scaleNameGlow 0.8s ease-out' : 'none',
+              }}
+            >
+              {(() => {
+                // v12.0: Si hay acorde seleccionado, mostrar nombre del acorde + grado
+                if (chordName && chordDegree) {
+                  return (
+                    <>
+                      {/* Grado romano sobre el nombre del acorde */}
+                      <text
+                        x={effectiveCenter}
+                        y={effectiveCenter - 30 * scaleCircle}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="#ffffff"
+                        fontSize="20"
+                        fontWeight="bold"
+                        className="select-none"
+                        style={{
+                          fontFamily: 'Georgia, serif',
+                          filter: 'drop-shadow(0 0 6px rgba(255, 255, 255, 0.5))',
+                        }}
+                      >
+                        {chordDegree}
+                      </text>
+                      {/* Nombre del acorde */}
+                      <text
+                        x={effectiveCenter}
+                        y={effectiveCenter + 5 * scaleCircle}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill={CHORD_NAME_COLOR}
+                        fontSize={SCALE_NAME_FONT_SIZE}
+                        fontWeight="600"
+                        opacity={isChordPlaying ? 1 : 0.95}
+                        className="select-none"
+                        style={{
+                          fontFamily: 'Georgia, serif',
+                          filter: 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.3)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.6))',
+                        }}
+                      >
+                        {chordName}
+                      </text>
+                      {/* Nota del acorde debajo */}
+                      <text
+                        x={effectiveCenter}
+                        y={effectiveCenter + 35 * scaleCircle}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        fill="#ffffff"
+                        fontSize="14"
+                        opacity={0.85}
+                        className="select-none"
+                        style={{
+                          fontFamily: 'Georgia, serif',
+                        }}
+                      >
+                        {chordNotes?.map((idx, i) => {
+                          // ✅ v15.2: Usar chordNoteNames si disponible (con contexto enarmónico correcto)
+                          const noteName = chordNoteNames?.[i] ?? CHROMATIC_SCALE[idx];
+                          return noteName + (i < chordNotes.length - 1 ? ' • ' : '');
+                        })}
+                      </text>
+                    </>
+                  );
+                }
+                
+                // Comportamiento normal: mostrar nombre de la escala — con escala
+                const lines = getScaleNameLines(scaleName);
+                const lineHeight = SCALE_NAME_FONT_SIZE * 1.2 * scaleCircle;
+                const totalHeight = lines.length * lineHeight;
+                const startY = effectiveCenter - totalHeight / 2 + lineHeight / 2;
+                
+                return lines.map((line, idx) => (
+                  <text
+                    key={idx}
+                    x={effectiveCenter}
+                    y={startY + idx * lineHeight}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#F5E6C8"
+                    fontSize={Math.round(SCALE_NAME_FONT_SIZE * scaleCircle)}
+                    fontWeight="light"
+                    opacity={scaleTextOpacity}
+                    className="select-none"
+                    style={{
+                      fontFamily: 'Georgia, serif',
+                      filter: scaleTextFilter,
+                    }}
+                  >
+                    {line}
+                  </text>
+                ));
+              })()}
+            </g>
+          )}
 
           {/* === Grado romano del acorde — solo centrado dentro del polígono (v12.0 eliminado exterior) === */}
 
-          {/* Indicador de nota raíz (pequeño punto) */}
+          {/* Indicador de nota raíz (pequeño punto) — con escala */}
           {activeNoteIndex >= 0 && (() => {
-            const rootPos = getRotatedNotePosition(rootIndex, rootIndex, CENTER, CENTER, CIRCLE_RADIUS);
+            const rootPos = getRotatedNotePosition(rootIndex, rootIndex, effectiveCenter, effectiveCenter, effectiveCircleRadius);
             return (
               <circle
                 cx={rootPos.x}
@@ -713,11 +739,11 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
             );
           })()}
 
-          {/* === Título del nombre de escala encima del círculo (solo modo acorde) === */}
+          {/* === Título del nombre de escala encima del círculo (solo modo acorde) — con escala === */}
           {chordName && chordDegree && (
             <text
-              x={CENTER}
-              y="15"
+              x={effectiveCenter}
+              y={15 * scaleCircle}
               textAnchor="middle"
               dominantBaseline="central"
               fill="#ffffff"

@@ -30,10 +30,12 @@ import {
   type MusicalNote,
 } from './lib/musicLogic';
 import type { ScaleName } from './lib/musicLogic';
-import { Play, Pause, Music, Download } from 'lucide-react';
+import { Play, Pause, Music, Download, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AudioEngine, INSTRUMENT_PRESETS, type InstrumentId } from './lib/audioEngine';
 import { exportScale, exportChord, downloadBlob, generateFilename } from './lib/audioExport';
 import * as Tone from 'tone';
+import { QuizPanel } from './components/QuizPanel';
+import { generateQuizSession, answerQuestion, type QuizState, type AppMode, type HintType } from './lib/quizLogic';
 
 // ============================================================
 // Estado inicial de la aplicación
@@ -115,6 +117,10 @@ const App: React.FC = () => {
 
   // === Estado de exportación audio (v17.0) ===
   const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  // === Estado del modo Quiz (v22.0) ===
+  const [appMode, setAppMode] = useState<AppMode>('scale');
+  const [quizState, setQuizState] = useState<QuizState | null>(null);
 
   // === Estado del sonido ===
   const [bpm, setBpm] = useState<number>(DEFAULT_BPM);
@@ -627,6 +633,77 @@ const App: React.FC = () => {
     }
   }, [activeCategory, isPlaying, isChordPlaying, stopPlayback, scalesByCategory]);
 
+  // === Lista plana de TODAS las escalas en orden por categoría (v23.0) ===
+  const allScalesFlat: ScaleName[] = [];
+  for (const category of SCALE_CATEGORY_ORDER) {
+    const scalesInCategory = (scalesByCategory[category] || []) as ScaleName[];
+    allScalesFlat.push(...scalesInCategory);
+  }
+
+  // === Navegación anterior/siguiente escala infinita (v23.0) ===
+  const handlePrevScale = useCallback(() => {
+    if (isPlaying || isChordPlaying) return;
+    if (appMode !== 'scale') return;
+    
+    if (allScalesFlat.length === 0) return;
+    
+    const currentIndex = allScalesFlat.indexOf(selectedScale);
+    const newIndex = (currentIndex - 1 + allScalesFlat.length) % allScalesFlat.length;
+    const newScale = allScalesFlat[newIndex];
+    const newCategory = SCALE_TO_CATEGORY[newScale];
+    if (newCategory) {
+      setActiveCategory(newCategory);
+    }
+    setSelectedScale(newScale);
+  }, [isPlaying, isChordPlaying, appMode, allScalesFlat, selectedScale]);
+
+  const handleNextScale = useCallback(() => {
+    if (isPlaying || isChordPlaying) return;
+    if (appMode !== 'scale') return;
+    
+    if (allScalesFlat.length === 0) return;
+    
+    const currentIndex = allScalesFlat.indexOf(selectedScale);
+    const newIndex = (currentIndex + 1) % allScalesFlat.length;
+    const newScale = allScalesFlat[newIndex];
+    const newCategory = SCALE_TO_CATEGORY[newScale];
+    if (newCategory) {
+      setActiveCategory(newCategory);
+    }
+    setSelectedScale(newScale);
+  }, [isPlaying, isChordPlaying, appMode, allScalesFlat, selectedScale]);
+
+  // === Manejadores del Quiz (v22.0) ===
+  
+  /** Inicia una sesión de quiz */
+  const handleStartQuiz = useCallback((playerName: string, totalQuestions: number, category: 'scale' | 'chord') => {
+    const config = { playerName, totalQuestions, category };
+    const initialState = generateQuizSession(config);
+    setQuizState(initialState);
+    setIsPlaying(false);
+    setIsChordPlaying(false);
+    stopPlayback();
+  }, [stopPlayback]);
+
+  /** Maneja una respuesta en el quiz */
+  const handleQuizAnswer = useCallback((optionId: string, hintsUsed: HintType[], usedAudioHelp: boolean) => {
+    if (!quizState || !quizState.currentQuestion) return;
+    
+    const result = answerQuestion(quizState, optionId, hintsUsed, usedAudioHelp);
+    setQuizState(result.newState);
+    
+    // Si el quiz terminó, no hacer nada más
+    if (result.newState.isSessionComplete) {
+      setIsPlaying(false);
+      stopPlayback();
+    }
+  }, [quizState, stopPlayback]);
+
+  /** Reinicia el quiz */
+  const handleQuizRestart = useCallback(() => {
+    setQuizState(null);
+  }, []);
+
   // === Render ===
   return (
     <>
@@ -640,8 +717,71 @@ const App: React.FC = () => {
           </h1>
         </header>
 
-        {/* Contenido principal — Layout Grid 2 Columnas (v9.3) */}
-        <div className="w-full max-w-6xl two-column-layout">
+        {/* === Botones de Modo (v22.0) === */}
+        <div className="flex justify-center gap-4 mb-6">
+          <button
+            onClick={() => { setAppMode('scale'); setIsChordMode(false); }}
+            className={`px-6 py-2.5 rounded-lg font-semibold transition-all border ${
+              appMode === 'scale' ? 'scale-105' : ''
+            }`}
+            style={{
+              background: appMode === 'scale' ? 'var(--color-gold)' : '#4a4430',
+              color: appMode === 'scale' ? '#12161c' : 'var(--color-gold)',
+              borderColor: appMode === 'scale' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.3)',
+            }}
+          >
+            🎹 Modo Escala
+          </button>
+          <button
+            onClick={() => { setAppMode('chord'); setIsChordMode(true); }}
+            className={`px-6 py-2.5 rounded-lg font-semibold transition-all border ${
+              appMode === 'chord' ? 'scale-105' : ''
+            }`}
+            style={{
+              background: appMode === 'chord' ? 'var(--color-gold)' : '#4a4430',
+              color: appMode === 'chord' ? '#12161c' : 'var(--color-gold)',
+              borderColor: appMode === 'chord' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.3)',
+            }}
+          >
+            🎵 Modo Acorde
+          </button>
+          <button
+            onClick={() => { setAppMode('quiz'); setIsChordMode(false); setQuizState(null); }}
+            className={`px-6 py-2.5 rounded-lg font-semibold transition-all border flex items-center gap-2 ${
+              appMode === 'quiz' ? 'scale-105' : ''
+            }`}
+            style={{
+              background: appMode === 'quiz' ? 'var(--color-gold)' : '#4a4430',
+              color: appMode === 'quiz' ? '#12161c' : 'var(--color-gold)',
+              borderColor: appMode === 'quiz' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.3)',
+            }}
+          >
+            <Brain size={18} /> Modo Quiz
+          </button>
+        </div>
+
+        {/* === Renderizado condicional: Quiz vs Normal === */}
+        {appMode === 'quiz' ? (
+          <>
+            {/* Footer para modo quiz */}
+            <QuizPanel
+              quizState={quizState}
+              onAnswer={handleQuizAnswer}
+              onStartSession={handleStartQuiz}
+              onRestart={handleQuizRestart}
+              bpm={bpm}
+              instrument={selectedInstrument as any}
+            />
+            <footer className="w-full text-center py-4 border-t border-gray-800 mt-6">
+              <div className="flex flex-col items-center gap-1 text-xs" style={{ color: 'var(--color-gold)' }}>
+                <p className="text-[var(--color-gold)]/60">Creado por Andrés Eduardo Garzón Polanía</p>
+                <p className="text-[var(--color-gold)]/60">andresmusic1@gmail.com · +57 3153159379</p>
+              </div>
+            </footer>
+          </>
+        ) : (
+          <>
+          <div className="w-full max-w-6xl two-column-layout">
           
           {/* ============================================================
               COLUMNA IZQUIERDA: Controles y configuraciones
@@ -967,6 +1107,46 @@ const App: React.FC = () => {
               />
             </div>
 
+            {/* === Navegación anterior/siguiente escala (v23.0) === */}
+            {(appMode === 'scale' || appMode === 'chord') && allScalesFlat.length > 1 && (
+              <div className="flex justify-center items-center gap-6 mt-8 mb-4">
+                {/* Botón Anterior */}
+                <button
+                  onClick={handlePrevScale}
+                  disabled={isPlaying || isChordPlaying}
+                  className="w-[72px] h-[72px] flex items-center justify-center rounded-full transition-all border-[3px] hover:scale-110 active:scale-95 disabled:opacity-30 disabled:pointer-events-none"
+                  style={{
+                    backgroundColor: '#dfc47f',
+                    borderColor: '#b8942e',
+                    color: '#1a1d24'
+                  }}
+                  title="Escala anterior"
+                >
+                  <ChevronLeft size={36} />
+                </button>
+                
+                {/* Nombre de escala */}
+                <span className="text-2xl font-semibold flex-shrink-0" style={{ color: 'var(--color-gold)' }}>
+                  {getScaleBaseName(selectedScale)}
+                </span>
+                
+                {/* Botón Siguiente */}
+                <button
+                  onClick={handleNextScale}
+                  disabled={isPlaying || isChordPlaying}
+                  className="w-[72px] h-[72px] flex items-center justify-center rounded-full transition-all border-[3px] hover:scale-110 active:scale-95 disabled:opacity-30 disabled:pointer-events-none"
+                  style={{
+                    backgroundColor: '#dfc47f',
+                    borderColor: '#b8942e',
+                    color: '#1a1d24'
+                  }}
+                  title="Siguiente escala"
+                >
+                  <ChevronRight size={36} />
+                </button>
+              </div>
+            )}
+
             {/* === Tempo + Reproducción (debajo del círculo) === */}
             <div className="tempo-bar w-full max-w-[550px] mt-6">
               {/* Renglón 1: Textos y BPM */}
@@ -1035,40 +1215,42 @@ const App: React.FC = () => {
                     </div>
                   </button>
                 )}
-                
-                {/* === Botón Exportar Audio (v17.0 — consolidado) === */}
-                {((!isChordMode && scaleData && scaleIndices.length > 0) ||
-                  (isChordMode && selectedChord && selectedChord.notes.length > 0)) && (
-                  <button
-                    onClick={handleExportAudio}
-                    disabled={isExporting}
-                    className={`mt-2 px-4 py-2 rounded-lg flex items-center gap-2 transition-all border ${
-                      isExporting
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:scale-105 active:scale-95'
-                    }`}
-                    style={{
-                      backgroundColor: '#4a4430',
-                      borderColor: 'var(--color-gold)/30',
-                      color: 'var(--color-gold)'
-                    }}
-                  >
-                    {isExporting ? (
-                      <div className="animate-spin w-5 h-5 border-2 border-[var(--color-gold)] border-t-transparent rounded-full" />
-                    ) : (
-                      <Download size={18} />
-                    )}
-                    <span className="text-xs font-medium">
-                      {isExporting
-                        ? 'Exportando...'
-                        : isChordMode
-                          ? 'Exportar Acorde WAV'
-                          : 'Exportar Escala WAV'
-                      }
-                    </span>
-                  </button>
-                )}
               </div>
+            </div>
+
+            {/* === Botón Exportar Audio (v21.7 — separado del Play) === */}
+            <div className="flex justify-center mt-4">
+              {((!isChordMode && scaleData && scaleIndices.length > 0) ||
+                (isChordMode && selectedChord && selectedChord.notes.length > 0)) && (
+                <button
+                  onClick={handleExportAudio}
+                  disabled={isExporting}
+                  className={`px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all border ${
+                    isExporting
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:scale-105 active:scale-95'
+                  }`}
+                  style={{
+                    backgroundColor: '#4a4430',
+                    borderColor: 'var(--color-gold)/30',
+                    color: 'var(--color-gold)'
+                  }}
+                >
+                  {isExporting ? (
+                    <div className="animate-spin w-5 h-5 border-2 border-[var(--color-gold)] border-t-transparent rounded-full" />
+                  ) : (
+                    <Download size={18} />
+                  )}
+                  <span className="text-sm font-medium">
+                    {isExporting
+                      ? 'Exportando...'
+                      : isChordMode
+                        ? 'Exportar Acorde WAV'
+                        : 'Exportar Escala WAV'
+                    }
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* === Controles de Audio (debajo del círculo) === */}
@@ -1096,16 +1278,15 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
-        </div> {/* Fin two-column-layout */}
-
-        {/* === Footer centrado === */}
-        <footer className="w-full text-center py-4 border-t border-gray-800 mt-6">
-          <div className="flex flex-col items-center gap-1 text-xs" style={{ color: 'var(--color-gold)' }}>
-            <p className="text-[var(--color-gold)]/60">Creado por Andrés Eduardo Garzón Polanía</p>
-            <p className="text-[var(--color-gold)]/60">andresmusic1@gmail.com · +57 3153159379</p>
-          </div>
-        </footer>
-
+          </div>  {/* Fin two-column-layout */}
+          <footer className="w-full text-center py-4 border-t border-gray-800 mt-6">
+            <div className="flex flex-col items-center gap-1 text-xs" style={{ color: 'var(--color-gold)' }}>
+              <p className="text-[var(--color-gold)]/60">Creado por Andrés Eduardo Garzón Polanía</p>
+              <p className="text-[var(--color-gold)]/60">andresmusic1@gmail.com · +57 3153159379</p>
+            </div>
+          </footer>
+          </>
+        )}
       </div> {/* Fin contenedor principal */}
     </>
   );
