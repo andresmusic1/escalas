@@ -1,12 +1,71 @@
 # 🎵 Escalas Musicales Interactivas - PROJECT MEMORY
 
-> **Última actualización:** 2026-06-08 (Sesión: v21.0 — Octavas dinámicas en buildChord para progresión ascendente)
-> **Versión del proyecto:** v21.0
+> **Última actualización:** 2026-06-08 (Sesión: v21.6 — Fix ruta reverb campana + parámetros catedral)
+> **Versión del proyecto:** v21.6
 > **Estado tests:** ✅ TypeScript compilation OK | ✅ 700/700 enharmony | ✅ 256/256 chords
 
 ---
 
 ## 📌 ESTADO ACTUAL DEL PROYECTO (Junio 2026)
+
+### 🟢 v21.6 — Fix Ruta Reverb Campana + Parámetros Catedral Ajustados
+**Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
+
+#### Problema resuelto: Cola de resonancia eterna en exportación WAV con campana
+**Causa raíz:** La ruta húmeda conectaba el `oscillator` directo al `ConvolverNode`, sin pasar por el `gainNode` con envelope ADSR. El oscillator emitía señal continua al 100%, saturando masivamente el convolver.
+
+#### Acciones realizadas:
+1. ✅ **Fix conexión en `connectCampanaNoteToSharedReverb()`:** `oscillator.connect(sharedReverb.convolver)` → `gainNode.connect(sharedReverb.convolver)` (línea ~147)
+2. ✅ **Fix conexión en `renderChordBlockWithSharedReverb()`:** `oscillator.connect(sharedReverb.convolver)` → `gainNode.connect(sharedReverb.convolver)` (línea ~186)
+3. ✅ **Removido湿Mix de `createReverbImpulse()`:** El wetMix se multiplicaba y luego normalizaba a 1.0 (inútil). Ahora control via wetGain node externo.
+4. ✅ **Parámetros catedral real en `createSharedCathedralReverb()`:** decay=3.5s, wet=1.5, preDelay=0.03s (sonido catedral completo)
+5. ✅ **Buffer ampliado para campana:** cathedralDecay + releaseTime = 2.0 + 1.5 = 3.5s mínimo extra
+6. ⚠️ **Valores reducidos por feedback del usuario:** decay=2.0s, wet=0.6, preDelay=0.015s
+
+#### Parámetros finales de reverb en exportación (v21.6):
+| Parámetro | Valor |
+|-----------|-------|
+| Decay | 2.0s |
+| Wet (wetGain) | 0.6 |
+| PreDelay | 0.015s (15ms) |
+
+#### Archivos modificados en esta sesión:
+- `src/lib/audioExport.ts` — Fix conexión gainNode→convolver, removido湿Mix de impulse response, parámetros catedral ajustados
+- `PROJECT_MEMORY.md` — Documentación
+
+### 🟢 v21.5 — ConvolverNode SHARED para Reverb Campana
+**Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
+
+#### Cambio: Un solo ConvolverNode compartido evita acumulación infinita de impulse responses
+- Implementado `createSharedCathedralReverb()` — un solo convolver para todas las notas
+- Implementado `connectCampanaNoteToSharedReverb()` — conecta cada nota al reverb compartido
+- Modificado `renderNativeAudio()` — crea sharedReverb antes del loop, lo pasa a cada nota
+- Modificado `renderChordBlock()` — acepta sharedReverb como parámetro opcional
+
+> ⚠️ **Resuelto en v21.6:** La implementación v21.5 tenía el bug de conectar oscillator→convolver (sin envelope). Fixeado con gainNode→convolver.
+
+### 🟢 v21.4 — Parámetros Reverb Ajustados (decay 0.5s, wet 0.10)
+**Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
+
+#### Cambio: Reducidos parámetros de reverb catedral para exportación WAV campana
+- Decay: 2.0s → 0.5s
+- Wet: 0.30 → 0.10
+- PreDelay: 0.003 → 0.001
+
+### 🟢 v21.1 — Reverb Catedral en Exportación WAV Campana
+**Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
+
+#### Cambio: ConvolverNode + impulse response generada para reverb catedral
+Se agregaron 4 nuevas funciones al módulo audioExport.ts:
+- `createReverbImpulse()` — genera IR con decay exponencial (3.2s, preDelay 0.08s)
+- `setupCathedralReverb()` — crea ConvolverNode + wetGain (wet: 0.35)
+- `createCampanaSignalChain()` — cadena dry+wet para notas individuales
+- `renderChordBlockWithReverb()` — cadena dry+wet para acordes simultáneos
+
+`renderNativeAudio()` ahora condicional: `isCampana ? createCampanaSignalChain() : envelope directo`
+`renderChordBlock()` misma lógica condicional.
+
+Buffer ampliado para campana: +2.5s release (antes +1.2s) para incluir cola de reverb catedral.
 
 ### 🟢 v21.0 — Octavas Dinámicas en buildChord para Progresión Ascendente
 **Archivos:** [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts)
@@ -83,6 +142,67 @@ const toneJsOctave = chordOctaves[position];
 - ✅ TypeScript compilation: OK
 - ✅ Enharmony tests: 700/700 PASSED
 - ✅ Chord tests: 256/256 PASSED
+
+### 🟢 v21.1 — Reverb Catedral en Exportación WAV para Campana
+**Archivo:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
+
+#### Problema: Al exportar a WAV con instrumento `campana`, los efectos de reverb catedral no se escuchaban
+La función `renderNativeAudio()` usaba Web Audio API nativa sin nodos de reverb — solo `OscillatorNode → GainNode → destination`.
+
+En reproducción en vivo (AudioEngine), la campana tiene:
+```
+PolySynth(sine) → Filter(3500Hz) → Reverb(decay: 3.2s, wet: 0.35, preDelay: 0.08s) → Destino
+```
+
+En exportación WAV anterior:
+```
+Oscillator(sine) → GainNode → destination ❌ (sin reverb)
+```
+
+Esto causaba que la campana exportada sonara como un tono sine puro seco — completamente diferente al sonido real de campana con reverb catedral.
+
+#### Fix aplicado: Nuevas funciones en audioExport.ts
+
+1. **`createReverbImpulse()`** — Genera impulse response simulada con decay exponencial:
+   - Env: `e^(-6.91 * t / T60)` donde T60 = 3.2s (decay catedral)
+   - preDelay: 0.08s de silencio inicial
+   - Ruido decorrelacionado con normalización para evitar clipping
+
+2. **`setupCathedralReverb()`** — Crea ConvolverNode + wetGain:
+   ```
+   source → convolver → wetGain(0.35) → destination (wet)
+   source → destination (dry)
+   ```
+
+3. **`createCampanaSignalChain()`** — Cadena completa con dry + wet:
+   ```
+   oscillator → gainNode → destination (dry)
+              → convolver(reverb catedral) → destination (wet)
+   ```
+
+4. **`renderChordBlockWithReverb()`** — Versión para acordes simultáneos con reverb
+
+5. **Modificación de `renderNativeAudio()`:** Condición `isCampana`:
+   - Si `sine`: usa `createCampanaSignalChain()`
+   - Si `triangle`: envelope directo sin reverb (como antes)
+
+6. **Modificación de `renderChordBlock()`:** Misma lógica condicional
+
+7. **Buffer ampliado para campana:**
+   - Antes: `+1.2s` release
+   - Ahora campana: `+2.5s` release + reverb tail (total ~4.5s cola)
+
+#### Equivalencia de parámetros Tone.Reverb → ConvolverNode:
+| Parámetro | Tone.Reverb (AudioEngine) | ConvolverNode (audioExport.ts) |
+|-----------|--------------------------|-------------------------------|
+| decay     | 3.2s                     | e^(-6.91 * t / 3.2)           |
+| wet       | 0.35                     | wetGain.gain = 0.35           |
+| preDelay  | 0.08s                    | silencio inicial 0.08s        |
+
+#### Validación:
+- ✅ TypeScript compilation: OK
+- ✅ Campana exportada ahora incluye reverb catedral (decay 3.2s, wet 0.35)
+- ✅ Piano exportado sin cambios (triangle directo, sin reverb)
 
 ### 🟢 v20.3 — Fix Bemoles en noteNameToFrequency + Fix octava buildChord
 **Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts), [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts)
@@ -417,6 +537,7 @@ const DIATONIC_MAP = { 0: 0, 2: 1, 3: 2, 7: 4, 8: 5 };
 | v9.2 | 2026-06-07 | Fix Altered con raíces # — `getDoublyAlteredName()` recibe `selectedRootName` |
 | v14.2 | 2026-06-07 | Fix retroceso visual reinicio neón: key={reproductionKey} fuerza reconstrucción DOM |
 | v14.1 | 2026-06-07 | Reinicio animación neón: `setChordPolygonComplete(false)` al inicio de playChordTravel() |
+| v21.1 | 2026-06-08 | Reverb catedral en exportación WAV campana — ConvolverNode + impulse response generada |
 | v21.0 | 2026-06-08 | Octavas dinámicas en buildChord — progresión ascendente F4-A4-C5, G4-B4-D5-F5 |
 | v20.3 | 2026-06-08 | Fix bemoles en noteNameToFrequency + Fix octava buildChord (tono fijo 4) |
 | v20.1 | 2026-06-08 | Web Audio API nativa — chords simultáneos + presets instrumento |
@@ -577,9 +698,10 @@ Usar ffprobe para verificar características técnicas:
 6. **Siempre usar `resolveEnharmonicName()`** para cualquier variante enarmónica.
 7. **NUNCA inventar datos musicales** — preguntar al usuario, usar fuentes verificadas.
 
-## 🏁 CIERRE DE SESIÓN — 2026-06-08
-- **Versión alcanzada:** v21.0
-- **Cambio principal:** Octavas dinámicas en buildChord() para progresión ascendente
-- **Tests:** ✅ 700/700 enharmony | ✅ 256/256 chords | ✅ TypeScript compilation OK
-- **Archivos modificados:** `src/lib/musicLogic.ts`, `PROJECT_MEMORY.md`
-- **Listo para commit** — mensaje: "fix: octavas dinámicas en buildChord para progresión ascendente de acordes"
+## 🏁 CIERRE DE SESIÓN — 2026-06-08 (v21.6)
+- **Versión alcanzada:** v21.6
+- **Cambio principal:** Fix ruta de conexión reverb campana (gainNode→convolver en lugar de oscillator→convolver) + parámetros catedral ajustados
+- **Tests:** ✅ TypeScript compilation OK
+- **Archivos modificados:** `src/lib/audioExport.ts`, `PROJECT_MEMORY.md`
+- **Estado:** ✅ Cola de resonancia eterna resuelta — reverb catedral funcional con valores reducidos (decay=2.0s, wet=0.6)
+- **Listo para commit** — mensaje: "fix: gainNode→convolver ruta reverb campana + parámetros catedral ajustados (v21.6)"

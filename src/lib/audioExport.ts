@@ -1,14 +1,190 @@
 import type { MusicalNote } from './musicLogic';
 
 // ============================================================
-// Exportación de Audio — v20.0 (Web Audio API nativa pura)
+// Exportación de Audio — v21.0 (Web Audio API nativa pura + Reverb Convolutivo)
 // Enfoque: Web Audio API directa SIN Tone.js para scheduling.
 // CAUSA RAÍZ v18.0-v19.0: Tone.Transport y Tone.Part NO funcionan
 // correctamente dentro de Tone.Offline en Tone.js v15.x — las notas
 // se programan pero el audio renderizado es mudo.
 // Solución: Usar OscillatorNode + GainNode directamente con
 // OfflineAudioContext para renderizar sin intermediarios.
+// v21.0: Agrega ConvolverNode con impulse response generada para
+// simular reverb catedral en instrumento campana.
 // ============================================================
+
+/**
+ * Genera una impulse response simulada para reverb convolutivo.
+ * Crea un decay exponencial con ruido decorrelacionado que simula
+ * las características de una catedral: decay largo, preDelay, y densidad.
+ * v21.6:湿Mix removido del buffer (se normaliza a 1.0), control via wetGain node.
+ */
+
+function createReverbImpulse(
+  offlineCtx: OfflineAudioContext,
+  decay: number,
+  preDelay: number
+): AudioBuffer {
+  const sampleRate = offlineCtx.sampleRate;
+  const totalLength = Math.ceil((preDelay + decay) * sampleRate);
+  
+  // Crear buffer de impulse response mono
+  const impulseChannel = offlineCtx.createBuffer(1, totalLength, sampleRate);
+  const data = impulseChannel.getChannelData(0);
+  
+  // Generar ruido decorrelacionado con envelope de decay exponencial
+  for (let i = 0; i < totalLength; i++) {
+    const t = i / sampleRate;
+    
+    // Aplicar preDelay: silencio inicial
+    if (t < preDelay) {
+      data[i] = 0;
+      continue;
+    }
+    
+    // Tiempo relativo al inicio del decay
+    const decayTime = t - preDelay;
+    
+    // Decay exponencial: env(t) = e^(-6.91 * t / T60)
+    // -6.91 ≈ ln(0.001) para llegar a -60dB en decay seconds
+    const envelope = Math.exp(-6.91 * decayTime / decay);
+    
+    // Ruido blanco decorrelacionado (simula reflexiones tempranas y tardías)
+    const noise = (Math.random() * 2 - 1);
+    
+    data[i] = noise * envelope;
+  }
+  
+  // Normalizar el impulse response para evitar clipping
+  let maxVal = 0;
+  for (let i = 0; i < totalLength; i++) {
+    if (Math.abs(data[i]) > maxVal) {
+      maxVal = Math.abs(data[i]);
+    }
+  }
+  if (maxVal > 0) {
+    for (let i = 0; i < totalLength; i++) {
+      data[i] /= maxVal;
+    }
+  }
+  
+  return impulseChannel;
+}
+
+/**
+ * Interfaz para almacenar el estado del reverb compartido entre notas de campana.
+ */
+interface SharedReverbState {
+  convolver: ConvolverNode;
+  wetGain: GainNode;
+}
+
+/**
+ * Crea un ConvolverNode SHARED (compartido) para todas las notas de campana.
+ * Solución v21.5: Un solo convolver evita la acumulación infinita de impulse responses.
+ * v21.6: decay 3.5s + wetMix 1.5 + preDelay 0.03 — sonido catedral real.
+ * Retorna el objeto SharedReverbState con convolver + wetGain ya conectados al destination.
+ */
+function createSharedCathedralReverb(
+  offlineCtx: OfflineAudioContext,
+  decay: number = 2.0,
+  wetMix: number = 0.6,
+  preDelay: number = 0.015
+): SharedReverbState {
+  // Generar impulse response UNA SOLA VEZ (sin wetMix — controlado por wetGain node)
+  const impulseBuffer = createReverbImpulse(offlineCtx, decay, preDelay);
+  
+  // Crear UN SOLO convolver node compartido por todas las notas
+  const convolver = offlineCtx.createConvolver();
+  convolver.buffer = impulseBuffer;
+  
+  // Crear ganancia para el send del reverb (wet) — compensa pérdida de señal sine
+  const wetGain = offlineCtx.createGain();
+  wetGain.gain.value = wetMix;
+  
+  // Conectar: convolver → wetGain → destination (solo una vez)
+  convolver.connect(wetGain);
+  wetGain.connect(offlineCtx.destination);
+  
+  return { convolver, wetGain };
+}
+
+/**
+ * Conecta una nota de campana al reverb compartido.
+ * oscillator → gainNode → [dry: destination] + [wet: sharedConvolver → sharedWetGain → destination]
+ */
+function connectCampanaNoteToSharedReverb(
+  offlineCtx: OfflineAudioContext,
+  oscillator: OscillatorNode,
+  gainNode: GainNode,
+  peakVolume: number,
+  attackTime: number,
+  decayRatio: number,
+  sustainLevel: number,
+  releaseTime: number,
+  startTime: number,
+  duration: number,
+  sharedReverb: SharedReverbState
+): void {
+  // Configurar envelope en el gainNode (igual que antes)
+  gainNode.gain.setValueAtTime(0, startTime);
+  gainNode.gain.linearRampToValueAtTime(peakVolume, startTime + attackTime);
+  const decayEnvTime = duration * decayRatio;
+  gainNode.gain.exponentialRampToValueAtTime(Math.max(sustainLevel * peakVolume, 0.001), startTime + attackTime + decayEnvTime);
+  
+  const releaseStart = startTime + duration;
+  gainNode.gain.setValueAtTime(Math.max(sustainLevel * peakVolume, 0.001), releaseStart);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + releaseTime);
+  
+  // Señal seca (directa) al destino
+  oscillator.connect(gainNode);
+  gainNode.connect(offlineCtx.destination);
+  
+  // Señal con reverb SHARED: gainNode (CON ENVELOPE ADSR) → sharedConvolver → sharedWetGain → destination
+  // El gainNode aplica la envolvente de campana antes de enviar al reverb — evita acumulación infinita
+  gainNode.connect(sharedReverb.convolver);
+}
+
+/**
+ * Renderiza un bloque de notas simultáneas (chord) con reverb compartido.
+ */
+function renderChordBlockWithSharedReverb(
+  offlineCtx: OfflineAudioContext,
+  noteNames: string[],
+  startTime: number,
+  duration: number,
+  preset: SoundPreset,
+  sharedReverb: SharedReverbState
+): void {
+  for (const noteName of noteNames) {
+    const frequency = noteNameToFrequency(noteName);
+    
+    const oscillator = offlineCtx.createOscillator();
+    oscillator.type = preset.oscillatorType;
+    oscillator.frequency.value = frequency;
+    
+    const gainNode = offlineCtx.createGain();
+    
+    // Envelope ADSR
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(preset.peakVolume, startTime + preset.attackTime);
+    const decayTime = duration * preset.decayRatio;
+    gainNode.gain.exponentialRampToValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), startTime + preset.attackTime + decayTime);
+    
+    const releaseStart = startTime + duration;
+    gainNode.gain.setValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), releaseStart);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + preset.releaseTime);
+    
+    // Conectar: dry + wet reverb SHARED (v21.5: un solo convolver para todas las notas)
+    oscillator.connect(gainNode);
+    gainNode.connect(offlineCtx.destination); // dry
+    
+    gainNode.connect(sharedReverb.convolver); // wet → shared convolver (CON ENVELOPE ADSR aplicado)
+    
+    oscillator.start(startTime);
+    oscillator.stop(releaseStart + preset.releaseTime + 0.1);
+  }
+}
+
 
 /**
  * Convierte nombre de nota musical (C4, D#5, etc.) a frecuencia en Hz.
@@ -133,14 +309,18 @@ const SOUND_PRESETS: Record<string, SoundPreset> = {
 /**
  * Renderiza un bloque de notas simultáneas (chord) con Web Audio API nativa.
  * Todos los osciladores comienzan al mismo tiempo y comparten envelope.
+ * v21.5: Usa ConvolverNode SHARED cuando se usa campana — evita acumulación infinita.
  */
 function renderChordBlock(
   offlineCtx: OfflineAudioContext,
   noteNames: string[],
   startTime: number,
   duration: number,
-  preset: SoundPreset
+  preset: SoundPreset,
+  sharedReverb: SharedReverbState | null = null
 ): void {
+  const isCampana = preset.oscillatorType === 'sine';
+  
   for (const noteName of noteNames) {
     const frequency = noteNameToFrequency(noteName);
     
@@ -152,20 +332,32 @@ function renderChordBlock(
     // Crear nodo de ganancia — mismo envelope que las notas individuales
     const gainNode = offlineCtx.createGain();
     
-    // Programa el envelope de ganancia
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(preset.peakVolume, startTime + preset.attackTime);
-    const decayTime = duration * preset.decayRatio;
-    gainNode.gain.exponentialRampToValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), startTime + preset.attackTime + decayTime);
+    if (isCampana && sharedReverb) {
+      // Campana: conectar al reverb SHARED (un solo convolver para todas las notas)
+      connectCampanaNoteToSharedReverb(
+        offlineCtx, oscillator, gainNode,
+        preset.peakVolume, preset.attackTime,
+        preset.decayRatio, preset.sustainLevel,
+        preset.releaseTime, startTime, duration,
+        sharedReverb
+      );
+    } else {
+      // Piano: envelope directo sin reverb
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(preset.peakVolume, startTime + preset.attackTime);
+      const decayTime = duration * preset.decayRatio;
+      gainNode.gain.exponentialRampToValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), startTime + preset.attackTime + decayTime);
+      
+      const releaseStart = startTime + duration;
+      gainNode.gain.setValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), releaseStart);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + preset.releaseTime);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(offlineCtx.destination);
+    }
     
-    const releaseStart = startTime + duration;
-    gainNode.gain.setValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), releaseStart);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + preset.releaseTime);
-    
-    // Conectar y programar
-    oscillator.connect(gainNode);
-    gainNode.connect(offlineCtx.destination);
     oscillator.start(startTime);
+    const releaseStart = startTime + duration;
     oscillator.stop(releaseStart + preset.releaseTime + 0.1);
   }
 }
@@ -183,7 +375,17 @@ function renderNativeAudio(
   sampleRate: number,
   oscillatorType: OscillatorType = 'triangle'
 ): Promise<AudioBuffer> {
+  // Determinar preset: usar el más cercano al tipo seleccionado
+  let preset = SOUND_PRESETS.proPiano; // default
+  const isCampana = oscillatorType === 'sine';
+  if (isCampana) {
+    preset = SOUND_PRESETS.campana;
+  }
+  
   // Calcular duración total + release
+  // v21.6: cathedralDecay=2.0s — espacio suficiente para que la cola del reverb termine sin cortarse
+  const cathedralDecay = 2.0;
+  const releaseExtra = isCampana ? (cathedralDecay + preset.releaseTime) : 1.8;
   let totalTime = 0;
   for (const note of notes) {
     totalTime += note.duration;
@@ -197,21 +399,21 @@ function renderNativeAudio(
     }
   }
   
-  const totalSamples = Math.ceil((totalTimeWithChords + 1.2) * sampleRate); // +1.2s para release
+  const totalSamples = Math.ceil((totalTimeWithChords + releaseExtra) * sampleRate);
   
+  console.log(`🔵 [renderNativeAudio] Preset: ${isCampana ? 'campana(sine+reverb SHARED)' : 'proPiano(triangle)'}`);
   console.log(`🔵 [renderNativeAudio] Creando OfflineAudioContext: ${sampleRate}Hz, ${totalSamples} samples (${(totalSamples / sampleRate).toFixed(2)}s)`);
   
   return new Promise((resolve) => {
-    // Determinar preset: usar el más cercano al tipo seleccionado
-    let preset = SOUND_PRESETS.proPiano; // default
-    if (oscillatorType === 'sine') {
-      preset = SOUND_PRESETS.campana;
-    }
-    
-    console.log(`🔵 [renderNativeAudio] Preset: oscillatorType=${preset.oscillatorType}`);
-    
     // Crear OfflineAudioContext directamente
     const offlineCtx = new OfflineAudioContext(1, totalSamples, sampleRate);
+    
+    // v21.6: Crear reverb SHARED para campana — 2.0s decay, 0.6 wet, 0.015 predelay (valores reducidos)
+    let sharedReverb: SharedReverbState | null = null;
+    if (isCampana) {
+      sharedReverb = createSharedCathedralReverb(offlineCtx, 2.0, 0.6, 0.015);
+      console.log(`🔵 [renderNativeAudio] ConvolverNode SHARED creado — decay=2.0s, wet=0.6`);
+    }
     
     let currentTime = 0;
     
@@ -231,24 +433,37 @@ function renderNativeAudio(
       // Crear nodo de ganancia para envelope ADSR
       const gainNode = offlineCtx.createGain();
       
-      // Programa el envelope de ganancia según preset
-      gainNode.gain.setValueAtTime(0, currentTime);
-      gainNode.gain.linearRampToValueAtTime(preset.peakVolume, currentTime + preset.attackTime); // Attack
-      const decayTime = duration * preset.decayRatio;
-      gainNode.gain.exponentialRampToValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), currentTime + preset.attackTime + decayTime); // Decay → Sustain
-      
-      // Release: rampa exponencial a 0
-      const releaseStart = currentTime + duration;
-      gainNode.gain.setValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), releaseStart);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + preset.releaseTime); // Release
-      
-      // Conectar: oscillator → gain → destination
-      oscillator.connect(gainNode);
-      gainNode.connect(offlineCtx.destination);
+      if (isCampana && sharedReverb) {
+        // Campana: conectar al reverb SHARED (un solo convolver para todas las notas)
+        connectCampanaNoteToSharedReverb(
+          offlineCtx, oscillator, gainNode,
+          preset.peakVolume, preset.attackTime,
+          preset.decayRatio, preset.sustainLevel,
+          preset.releaseTime, currentTime, duration,
+          sharedReverb
+        );
+      } else {
+        // Piano: envelope directo sin reverb
+        // Programa el envelope de ganancia según preset
+        gainNode.gain.setValueAtTime(0, currentTime);
+        gainNode.gain.linearRampToValueAtTime(preset.peakVolume, currentTime + preset.attackTime); // Attack
+        const decayTime = duration * preset.decayRatio;
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), currentTime + preset.attackTime + decayTime); // Decay → Sustain
+        
+        // Release: rampa exponencial a 0
+        const releaseStart = currentTime + duration;
+        gainNode.gain.setValueAtTime(Math.max(preset.sustainLevel * preset.peakVolume, 0.001), releaseStart);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, releaseStart + preset.releaseTime); // Release
+        
+        // Conectar: oscillator → gain → destination
+        oscillator.connect(gainNode);
+        gainNode.connect(offlineCtx.destination);
+      }
       
       // Programar inicio y parada del oscilador
+      const releaseStart = currentTime + duration;
       oscillator.start(currentTime);
-      oscillator.stop(releaseStart + preset.releaseTime + 0.1);
+      oscillator.stop(releaseStart + preset.releaseTime + (isCampana ? 0.5 : 0.1));
       
       currentTime += note.duration;
     }
@@ -263,8 +478,8 @@ function renderNativeAudio(
         
         console.log(`🎹 [renderNativeAudio] Chord a t=${currentTime.toFixed(3)}s: ${chordNoteNames.join(', ')}`);
         
-        // Renderizar todas las notas del acorde simultáneamente
-        renderChordBlock(offlineCtx, chordNoteNames, currentTime, chordDuration, preset);
+        // Renderizar todas las notas del acorde simultáneamente (usa renderChordBlock con sharedReverb)
+        renderChordBlock(offlineCtx, chordNoteNames, currentTime, chordDuration, preset, sharedReverb);
         
         currentTime += chordDuration;
       }
