@@ -417,6 +417,13 @@ const DIATONIC_MAP = { 0: 0, 2: 1, 3: 2, 7: 4, 8: 5 };
 | v9.2 | 2026-06-07 | Fix Altered con raíces # — `getDoublyAlteredName()` recibe `selectedRootName` |
 | v14.2 | 2026-06-07 | Fix retroceso visual reinicio neón: key={reproductionKey} fuerza reconstrucción DOM |
 | v14.1 | 2026-06-07 | Reinicio animación neón: `setChordPolygonComplete(false)` al inicio de playChordTravel() |
+| v21.0 | 2026-06-08 | Octavas dinámicas en buildChord — progresión ascendente F4-A4-C5, G4-B4-D5-F5 |
+| v20.3 | 2026-06-08 | Fix bemoles en noteNameToFrequency + Fix octava buildChord (tono fijo 4) |
+| v20.1 | 2026-06-08 | Web Audio API nativa — chords simultáneos + presets instrumento |
+| v20.0 | 2026-06-08 | Web Audio API nativa (OscillatorNode) — audio audible funcional |
+| v19.0 | 2026-06-03 | Tone.Part scheduling — mute |
+| v18.0 | 2026-06-03 | Tone.Transport.schedule() — mute |
+| v17.5 | 2026-06-03 | Tone.Offline + setTimeout — mute |
 | v18.5 | 2026-06-03 | Orden renderización corregido: relleno azul primero (fondo), neón dorado después (encima) |
 | v18.4 | 2026-06-03 | Grosor neón aumentado a 3.0px |
 | v18.3 | 2026-06-03 | Eliminación capas rojas — solo neón dorado permanece |
@@ -510,13 +517,13 @@ Si continúas en un nuevo chat, copia este archivo PROJECT_MEMORY.md completo.
 ### Resumen Rápido para la IA:
 SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas musicales SVG interactivo con modo escala y modo acorde + exportar audio a WAV.
 
-**Estado Actual (v17.0):**
+**Estado Actual (v21.0):**
 
 **AudioEngine v17.1:** 2 instrumentos Synth (eliminado Tone.Sampler):
 - `proPiano`: PolySynth(triangle) → Filter(lowpass 7kHz) → Compressor(-24dB/3:1) → FeedbackDelay(0.143s, wet 7%) + Reverb(1.8s)
 - `campana`: PolySynth(sine) → Filter(lowpass 3.5kHz Q:0.4) → Reverb(3.2s/catedral)
 
-**Exportar Audio v17.0:** Módulo `src/lib/audioExport.ts` con Tone.Offline para renderizar WAV sin reproducir en tiempo real
+**Exportar Audio v20.1:** Módulo `src/lib/audioExport.ts` con Web Audio API nativa (OfflineAudioContext + OscillatorNode)
 - Funciones: `exportScale()`, `exportChord()`, `audioBufferToWav()`
 - Formato: WAV PCM 16-bit, 48kHz sample rate
 - Botón "Exportar WAV" en UI debajo de Play/Stop
@@ -529,15 +536,21 @@ SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas mus
 - Diccionarios 17 Strings (`TRITONE_SPELLINGS`, `PROMETHEUS_SPELLINGS`, `AUGMENTED_SPELLINGS`) para hexatónicas/simétricas
 - `SCALE_EXTENDED_INFO` completado para ~30+ escalas con context, degrees y relations
 
-**UI (v11.0+):** Controles flotantes top-center sobre SVG. Panel izquierdo limpio con Categorías → Escalas → Raíz → Audio → Tempo+Play → Escala Actual.
+**UI (v11.0+):** Controles flotantes top-center sobre SVG. Panel izquierdo limpio con Categorías → Escalas → Raíz → Audio → Tempo+Play → Exportar WAV → Escala Actual.
 
 **Samples v16.1:** Ruta `/samples/pad piano/`, 48kHz mono Vorbis, duración corta (~2s), release ajustado a 1.5s
-**Modo Acorde (v9.3):**
+**Modo Acorde (v21.0):**
 - Polígono neón dorado `stroke="#FFD700" strokeWidth="3.0"` filtro `neonGlow` (blur1=1.5, blur2=3)
 - Relleno con gradiente diagonal (`chordGradient`: #7ea1f5→#4a90d9), fillOpacity=1 (opaque al completar)
 - Orden de renderización DOM: relleno primero (fondo), neón después (encima)
 - Texto centrado interior en blanco puro (#ffffff): grado romano, nombre acorde, notas
 - Título de escala encima del círculo (solo modo acorde): `scaleName.replace(/\s*\(Acoustic\)\s*/g, '').trim()` a y="25" dentro de `<g transform="translate(0, 25)">`
+- **Octavas dinámicas (v21.0):** buildChord() calcula octavas basadas en MIDI comparison para progresión ascendente — cada nota más aguda que la precedente
+
+**buildChord() v21.0:**
+- Antes: `toneJsOctave = 4` fijo → notas saltaban octava incorrectamente
+- Ahora: pre-calcula `chordOctaves[]` comparando MIDI numbers con nota precedente
+- Si `baseMidi <= lastMidi`: sube a octava 5 para mantener progresión ascendente
 
 **SVG Crítico:**
 - Gradiente escala: `polygonGradient` (línea ~493)
@@ -563,3 +576,10 @@ Usar ffprobe para verificar características técnicas:
 5. **Tailwind v4 NO genera grid/gap — inline styles.**
 6. **Siempre usar `resolveEnharmonicName()`** para cualquier variante enarmónica.
 7. **NUNCA inventar datos musicales** — preguntar al usuario, usar fuentes verificadas.
+
+## 🏁 CIERRE DE SESIÓN — 2026-06-08
+- **Versión alcanzada:** v21.0
+- **Cambio principal:** Octavas dinámicas en buildChord() para progresión ascendente
+- **Tests:** ✅ 700/700 enharmony | ✅ 256/256 chords | ✅ TypeScript compilation OK
+- **Archivos modificados:** `src/lib/musicLogic.ts`, `PROJECT_MEMORY.md`
+- **Listo para commit** — mensaje: "fix: octavas dinámicas en buildChord para progresión ascendente de acordes"
