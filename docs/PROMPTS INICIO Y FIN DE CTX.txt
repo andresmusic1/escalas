@@ -14,15 +14,12 @@ Escribe la actualización pensando en que la leerá tu "yo del futuro" con un co
 Por favor, actualiza y depura, elimina código muerto del archivo pero manteniendo su excelente estructura actual
 
 
-
 CUANDO INICIAMOS NUEVO CONTEXTO DE 131K
 
 ¡Hola! Vamos a continuar desarrollando nuestro proyecto musical "ESCALAS". Para arrancar esta nueva sesión con el contexto perfecto (131K) y sin que yo tenga que repetirte las cosas, necesito que ejecutes tu proceso de inicialización utilizando tus herramientas de lectura en este orden estricto:
 
-1. Lee detalladamente el archivo `PROJECT_MEMORY.md` y D:\PROYECTOS IA\ESCALAS\.clinerules en la raíz. 
+1. Lee detalladamente el archivo `D:\PROYECTOS IA\ESCALAS\PROJECT_MEMORY.md` y `D:\PROYECTOS IA\ESCALAS\.clinerules` en la raíz. 
 ⚠️ **REGLA ESTRICTA DE AHORRO DE TOKENS:**
 NO leas ni uses la herramienta de lectura en los archivos fuente (`App.tsx`, `musicLogic.ts`, etc.) en este momento. Solo guíate por el Memory. Leerás el código fuente más adelante, únicamente cuando sea el momento de modificarlo.
 
 En qué habíamos quedado para continuar?
-
-

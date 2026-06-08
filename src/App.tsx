@@ -456,42 +456,48 @@ const App: React.FC = () => {
     
   }, [selectedChord, selectedChordRootIndex, isChordPlaying]);
 
-  // === v17.0: Función de exportar audio a WAV ===
+  // === v17.4: Función de exportar audio a WAV (Tone.Offline) ===
   const handleExportAudio = useCallback(async () => {
+    console.log('🔵 [EXPORT] handleExportAudio START');
     if (isExporting) return;
     
     try {
       setIsExporting(true);
-      
-      // Preparar el contexto de audio para descarga
-      await Tone.start();
+      console.log('🟡 [EXPORT] isExporting=true, scaleData=', !!scaleData, 'chord=', !!selectedChord);
       
       let blob: Blob;
       let filename: string;
+      const noteDuration = noteDurationSecondsRef.current;
+      console.log('🟡 [EXPORT] noteDuration=', noteDuration);
       
       if (!isChordMode && scaleData && scaleIndices.length > 0) {
-        // Exportar escala completa
-        const noteDuration = noteDurationSecondsRef.current;
-        blob = await exportScale(scaleData, selectedInstrument as InstrumentId, noteDuration);
+        console.log('🔵 [EXPORT] Modo ESCALA — llamando exportScale() instrument=', selectedInstrument);
+        // Exportar escala con instrumento seleccionado
+        blob = await exportScale(scaleData, noteDuration, selectedInstrument as 'proPiano' | 'campana');
+        console.log('🟢 [EXPORT] exportScale retornó blob size=', blob.size);
         filename = generateFilename(`${selectedRootName}_${getScaleBaseName(selectedScale)}`);
       } else if (isChordMode && selectedChord && selectedChordRootIndex !== null) {
-        // Exportar acorde actual
-        const noteDuration = noteDurationSecondsRef.current;
-        blob = await exportChord(selectedChord.notes, selectedInstrument as InstrumentId, noteDuration);
+        console.log('🔵 [EXPORT] Modo ACORDE — llamando exportChord() instrument=', selectedInstrument);
+        // Exportar acorde con instrumento seleccionado
+        blob = await exportChord(selectedChord.notes, noteDuration, selectedInstrument as 'proPiano' | 'campana');
+        console.log('🟢 [EXPORT] exportChord retornó blob size=', blob.size);
         filename = generateFilename(`${selectedRootName}_${chordName}`);
       } else {
         throw new Error('No hay escala o acorde seleccionado para exportar');
       }
       
+      console.log('🔵 [EXPORT] Llamando downloadBlob(filename=', filename, ')');
       downloadBlob(blob, filename);
+      console.log('🟢 [EXPORT] downloadBlob completado');
     } catch (error) {
-      console.error('Error al exportar audio:', error);
-      alert('Error al exportar audio. Por favor intenta de nuevo.');
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      console.error('❌ Error al exportar audio:', error, errorMsg);
+      alert(`Error al exportar audio: ${errorMsg}`);
     } finally {
+      console.log('🔴 [EXPORT] finally block — isExporting=false');
       setIsExporting(false);
     }
-  }, [isExporting, isChordMode, scaleData, scaleIndices, selectedChord, selectedChordRootIndex,
-      selectedInstrument, selectedRootName, selectedScale, chordName]);
+  }, [isExporting, isChordMode, scaleData, selectedChord, selectedRootName, selectedScale, chordName, selectedInstrument]);
   
   // Resetear polygonComplete cuando se seleccione una escala diferente
   useEffect(() => {
@@ -1030,37 +1036,13 @@ const App: React.FC = () => {
                   </button>
                 )}
                 
-                {/* === Botón Exportar Audio (v17.0) === */}
-                <button
-                  onClick={handleExportAudio}
-                  disabled={!scaleData || isChordMode || !selectedChord || isExporting}
-                  className={`mt-2 px-4 py-2 rounded-lg flex items-center gap-2 transition-all border ${
-                    isExporting
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:scale-105 active:scale-95'
-                  }`}
-                  style={{
-                    backgroundColor: '#4a4430',
-                    borderColor: 'var(--color-gold)/30',
-                    color: 'var(--color-gold)'
-                  }}
-                >
-                  {isExporting ? (
-                    <div className="animate-spin w-5 h-5 border-2 border-[var(--color-gold)] border-t-transparent rounded-full" />
-                  ) : (
-                    <Download size={18} />
-                  )}
-                  <span className="text-xs font-medium">{isExporting ? 'Exportando...' : 'Exportar WAV'}</span>
-                </button>
-              </div>
-              
-              {/* === Botón Exportar para modo escala (fuera del contenedor condicional) === */}
-              {!isChordMode && scaleData && scaleIndices.length > 0 && (
-                <div className="flex justify-center mt-2">
+                {/* === Botón Exportar Audio (v17.0 — consolidado) === */}
+                {((!isChordMode && scaleData && scaleIndices.length > 0) ||
+                  (isChordMode && selectedChord && selectedChord.notes.length > 0)) && (
                   <button
                     onClick={handleExportAudio}
                     disabled={isExporting}
-                    className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all border ${
+                    className={`mt-2 px-4 py-2 rounded-lg flex items-center gap-2 transition-all border ${
                       isExporting
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:scale-105 active:scale-95'
@@ -1076,10 +1058,17 @@ const App: React.FC = () => {
                     ) : (
                       <Download size={18} />
                     )}
-                    <span className="text-xs font-medium">{isExporting ? 'Exportando...' : 'Exportar Escala WAV'}</span>
+                    <span className="text-xs font-medium">
+                      {isExporting
+                        ? 'Exportando...'
+                        : isChordMode
+                          ? 'Exportar Acorde WAV'
+                          : 'Exportar Escala WAV'
+                      }
+                    </span>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* === Controles de Audio (debajo del círculo) === */}

@@ -2627,6 +2627,38 @@ export function buildChord(
 
   const rootNote = selectedRootName || getDefaultRootName(rootIndex);
   
+  // === Función auxiliar: convertir (noteIndex, octave) a MIDI number para comparación de pitch ===
+  function noteToMidi(noteIdx: number, oct: number): number {
+    return (oct + 1) * 12 + noteIdx;
+  }
+
+  // === Pre-calcular octavas dinámicas para progresión ascendente ===
+  // Cada nota debe ser más aguda que la precedente. Si no, se sube una octava.
+  const chordOctaves: number[] = [];
+  let lastMidi = 0;
+
+  for (let i = 0; i < chordType.intervals.length; i++) {
+    const interval = chordType.intervals[i];
+    const noteIdx = (rootIndex + interval) % 12;
+
+    if (i === 0) {
+      // Primera nota siempre en octava base 4
+      chordOctaves.push(4);
+      lastMidi = noteToMidi(noteIdx, 4);
+    } else {
+      const baseMidi = noteToMidi(noteIdx, 4);
+      if (baseMidi > lastMidi) {
+        // Cabe en la misma octava y es más aguda que la precedente
+        chordOctaves.push(4);
+        lastMidi = baseMidi;
+      } else {
+        // Subir una octava para mantener progresión ascendente
+        chordOctaves.push(5);
+        lastMidi = noteToMidi(noteIdx, 5);
+      }
+    }
+  }
+
   // Construir las notas del acorde usando los intervalos
   const notes: ChordNote[] = chordType.intervals.map((interval, position) => {
     const noteIndex = (rootIndex + interval) % 12;
@@ -2645,9 +2677,8 @@ export function buildChord(
       contextRootName
     );
     
-    // === Aritmética estricta para garantizar ascensión monofónica sin saltos de octava ===
-    const absoluteSemitones = 12 * 4 + rootIndex + interval;
-    const toneJsOctave = Math.floor(absoluteSemitones / 12);
+    // === Cálculo de tono: octava dinámica basada en progresión ascendente ===
+    const toneJsOctave = chordOctaves[position];
     
     const toneJsNote = `${CHROMATIC_SCALE[noteIndex]}${toneJsOctave}`;
     const frequency = getFrequency(noteIndex, toneJsOctave);

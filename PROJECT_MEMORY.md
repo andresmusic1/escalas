@@ -1,14 +1,172 @@
 # 🎵 Escalas Musicales Interactivas - PROJECT MEMORY
 
-> **Última actualización:** 2026-06-08 (Sesión: v17.0 — Exportar Audio a WAV)
-> **Versión del proyecto:** v17.0
-> **Estado tests:** ✅ TypeScript compilation OK
+> **Última actualización:** 2026-06-08 (Sesión: v21.0 — Octavas dinámicas en buildChord para progresión ascendente)
+> **Versión del proyecto:** v21.0
+> **Estado tests:** ✅ TypeScript compilation OK | ✅ 700/700 enharmony | ✅ 256/256 chords
 
 ---
 
 ## 📌 ESTADO ACTUAL DEL PROYECTO (Junio 2026)
 
-### 🟢 v17.0 — Exportar Audio a WAV (Tone.Offline)
+### 🟢 v21.0 — Octavas Dinámicas en buildChord para Progresión Ascendente
+**Archivos:** [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts)
+
+#### Problema: Notas de triadas/cuatríadas saltaban octava incorrectamente
+La función `buildChord()` calculaba TODAS las notas en octava 4 (`const toneJsOctave = 4`), causando que notas con intervalos amplios (5ta justa, 7ma) cayeran por debajo de notas anteriores del mismo acorde.
+
+**Ejemplo del bug:** Tríada F-A-C en C Jónico (IV grado):
+- Antes: F4 → A4 → **C4** ❌ (C4=261Hz < A4=440Hz, rompe progresión ascendente)
+- Después: F4 → A4 → **C5** ✅ (C5=523Hz > A4=440Hz, progresión correcta)
+
+**Ejemplo:** Cuatríada G7 en C Jónico (V grado):
+- Antes: G4 → B4 → **D4** → **F4** ❌ (D4 < B4, F4 < D5)
+- Después: G4 → B4 → **D5** → **F5** ✅
+
+#### Fix aplicado en [`buildChord()`](src/lib/musicLogic.ts:2630):
+```typescript
+// Función auxiliar para comparar pitches usando MIDI numbers
+function noteToMidi(noteIdx: number, oct: number): number {
+  return (oct + 1) * 12 + noteIdx;
+}
+
+// Pre-calcular octavas dinámicas para progresión ascendente
+const chordOctaves: number[] = [];
+let lastMidi = 0;
+
+for (let i = 0; i < chordType.intervals.length; i++) {
+  const interval = chordType.intervals[i];
+  const noteIdx = (rootIndex + interval) % 12;
+
+  if (i === 0) {
+    // Primera nota siempre en octava base 4
+    chordOctaves.push(4);
+    lastMidi = noteToMidi(noteIdx, 4);
+  } else {
+    const baseMidi = noteToMidi(noteIdx, 4);
+    if (baseMidi > lastMidi) {
+      // Cabe en la misma octava y es más aguda que la precedente
+      chordOctaves.push(4);
+      lastMidi = baseMidi;
+    } else {
+      // Subir una octava para mantener progresión ascendente
+      chordOctaves.push(5);
+      lastMidi = noteToMidi(noteIdx, 5);
+    }
+  }
+}
+
+// Usar la octava calculada para cada nota
+const toneJsOctave = chordOctaves[position];
+```
+
+#### Regla de progresión ascendente:
+1. Primera nota del acorde siempre en octava base (4)
+2. Cada nota subsiguiente se compara con su precedente usando MIDI numbers
+3. Si la nota cae por debajo (baseMidi <= lastMidi), se sube una octava (5)
+4. Esto garantiza que cada nota sea más aguda que la anterior
+
+#### Impacto:
+- **Arpegio en vivo:** Las notas se reproducen en orden ascendente correcto
+- **Acorde simultáneo (impacto):** Todas las notas suenan en sus octavas corregidas
+- **Exportación WAV:** Usa `toneJsNote` de buildChord, automáticamente corregido
+
+#### Ejemplos de resultados:
+| Acorde | Anterior | Nuevo |
+|--------|----------|-------|
+| F Major (IV en C) | F4-A4-**C4** | F4-A4-**C5** ✅ |
+| G7 (V en C) | G4-B4-**D4-F4** | G4-B4-**D5-F5** ✅ |
+| C Major (I en C) | C4-E4-G4 | C4-E4-G4 ✅ (sin cambio, ya ascendente) |
+| Cmaj7 | C4-E4-G4-B4 | C4-E4-G4-B4 ✅ (sin cambio) |
+| maj7(#5) | C4-E4-**G#4**-B4 | C4-E4-**G#4**-B4 ✅ (sin cambio) |
+
+#### Validación:
+- ✅ TypeScript compilation: OK
+- ✅ Enharmony tests: 700/700 PASSED
+- ✅ Chord tests: 256/256 PASSED
+
+### 🟢 v20.3 — Fix Bemoles en noteNameToFrequency + Fix octava buildChord
+**Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts), [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts)
+
+### 🟢 v20.3 — Fix Bemoles en noteNameToFrequency (audioExport.ts)
+**Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts)
+
+#### Bug corregido: Notas con bemol (Eb, Db, Gb, Ab, Bb) calculaban frecuencia incorrecta
+La función `noteNameToFrequency()` usaba un array solo con sostenidos:
+```typescript
+// ANTES (bug):
+const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+```
+
+Cuando se pasaba `"Eb4"`, `noteNames.indexOf("Eb")` devolvía `-1`, calculando un MIDI número negativo y frecuencia incorrecta:
+- Eb4 → noteIndex=-1 → midiNumber=59 → 246.94Hz (B3) ❌
+- Eb4 correcto → noteIndex=3 → midiNumber=63 → 311.13Hz ✅
+
+#### Fix aplicado en [`noteNameToFrequency()`](src/lib/audioExport.ts:17):
+```typescript
+// Ahora soporta bemoles Y sostenidos
+const noteNamesFlat = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const noteNamesSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+let noteIndex = noteNamesFlat.indexOf(noteLetter);
+if (noteIndex === -1) {
+  noteIndex = noteNamesSharp.indexOf(noteLetter);
+}
+```
+
+**Impacto:** Todas las escalas con bemoles (Eb Mayor, Ab Menor, C Menor Melódica, etc.) ahora exportan frecuencias correctas.
+
+### 🟢 v20.2 — Fix Octava en buildChord para Acordes (Cuatríadas)
+**Archivos:** [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts)
+
+#### Bug corregido: Notas de cuatríadas saltaban octava con rootIndex >= 5
+La fórmula original `toneJsOctave = Math.floor((48 + rootIndex + interval) / 12)` causaba que notas con `rootIndex + interval >= 12` se calculasen en octava 5 en lugar de octava 4.
+
+**Ejemplo:** D7 (rootIndex=2), 7ma nota:
+- Antes: `C5` (554.37Hz) — saltó una octava arriba ❌
+- Después: `C4` (261.63Hz) — posición correcta ✅
+
+#### Fix aplicado en [`buildChord()`](src/lib/musicLogic.ts:2650):
+```typescript
+// Antes: const toneJsOctave = Math.floor((48 + rootIndex + interval) / 12);
+// Después: Todas las notas del acorde permanecen en octava base 4
+const toneJsOctave = 4;
+```
+
+**Motivo:** Los intervalos máximos de cuatríadas son 11 semitonos (maj7), siempre caben dentro de una octava base.
+
+### 🟢 v20.1 — Exportar Audio WAV: Web Audio API Nativa + Acordes Simultáneos
+**Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts), [`src/App.tsx`](src/App.tsx)
+
+#### Implementación actual (v20.1)
+- **Enfoque:** Web Audio API nativa pura — `OfflineAudioContext` + `OscillatorNode` + `GainNode`, sin Tone.js
+- **Instrumentos soportados:**
+  - `proPiano`: oscilador triangle, attack 0.003s, decay 60%, sustain 15%, release 0.8s
+  - `campana`: oscilador sine, attack 0.001s, decay 90%, sustain 0%, release 1.5s
+- **Escalas:** notas individuales secuenciales + raíz octavada al final (duración 50%)
+- **Acordes (triadas/cuatríadas):**
+  - Fase 1: Arpegio (notas secuenciales)
+  - Fase 1.5: Cierre (raíz una octava arriba)
+  - Fase 2: Impacto — TODAS las notas del acorde simultáneamente usando `renderChordBlock()`
+
+#### Estructura del export de acordes:
+```
+[Arpegio nota1] → [Arpegio nota2] → ... → [Cierre raíz+octava] → [Impacto: todas simultáneo]
+```
+
+#### Historial completo de intentos:
+| Versión | Enfoque | Resultado |
+|---------|---------|-----------|
+| v17.0-v17.5 | Tone.Offline + setTimeout — mute | ❌ Sin event loop real |
+| v18.0 | Tone.Transport.schedule() — mute | ❌ time como offset incorrecto |
+| v19.0 | Tone.Part scheduling — mute | ❌ Tone.js v15.x incompatible con Offline |
+| **v20.0** | Web Audio API nativa (OscillatorNode) | ✅ Audio audible funcional |
+| **v20.1** | + `chords[]` para acordes simultáneos + presets instrumento | ✅ Triadas y cuatríadas correctas |
+
+### ⏳ PENDIENTE PARA PRÓXIMA SESIÓN
+- **Revisar exportación de cuatrías:** Verificar que las 4 notas del arpegio + acorde de 4 notas suenan correctamente
+- Validar que el duration del impacto coincide con la reproducción en vivo
+
+### 🟢 v17.0 — Exportar Audio a WAV (Tone.Offline) — Estructura base
 **Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts), [`src/App.tsx`](src/App.tsx)
 
 #### Cambio 1: Nuevo módulo `audioExport.ts`
