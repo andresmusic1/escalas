@@ -1,12 +1,47 @@
 # 🎵 Escalas Musicales Interactivas - PROJECT MEMORY
 
-> **Última actualización:** 2026-06-08 (Sesión: v16.1 — Ruta Samples Actualizada + Parámetros Ajustados)
-> **Versión del proyecto:** v16.1
+> **Última actualización:** 2026-06-08 (Sesión: v17.0 — Exportar Audio a WAV)
+> **Versión del proyecto:** v17.0
 > **Estado tests:** ✅ TypeScript compilation OK
 
 ---
 
 ## 📌 ESTADO ACTUAL DEL PROYECTO (Junio 2026)
+
+### 🟢 v17.0 — Exportar Audio a WAV (Tone.Offline)
+**Archivos:** [`src/lib/audioExport.ts`](src/lib/audioExport.ts), [`src/App.tsx`](src/App.tsx)
+
+#### Cambio 1: Nuevo módulo `audioExport.ts`
+- **Funciones principales:** `exportAudio()`, `exportScale()`, `exportChord()`
+- **Utilidades:** `audioBufferToWav()`, `downloadBlob()`, `generateFilename()`
+- **Tecnología:** Tone.Offline renderiza audio sin reproducir en tiempo real
+- **Formato WAV:** PCM 16-bit, sample rate 48kHz (coincide con samples reales)
+- **Interleaving:** Mono/stereo channels interleaved para formato WAV estándar
+
+#### Cambio 2: Función `createOfflineInstrument()`
+- Clona la configuración del AudioEngine para usar en Tone.Offline
+- Reutiliza INSTRUMENT_MAP para crear PolySynth + efectos idénticos
+- Soporta ambos instrumentos: `proPiano` (triangle + compresor + delay + reverb) y `campana` (sine + reverb catedral)
+
+#### Cambio 3: Botón Exportar en UI
+- **Ubicación:** Debajo de los botones Play/Stop en tempo-bar
+- **Estado visual:** Spinner animado mientras exporta, icono Download cuando listo
+- **Texto dinámico:** "Exportar WAV" / "Exportando..." / "Exportar Escala WAV"
+- **Deshabilitado:** Durante exportación activa o sin escala/acorde seleccionado
+
+#### Cambio 4: Función `handleExportAudio()` en App.tsx
+- Detecta modo escala vs modo acorde automáticamente
+- Usa `exportScale()` para escalas (incluye nota raíz octavada al final)
+- Usa `exportChord()` para acordes (arpegio + raíz octavada + acorde simultáneo)
+- Genera nombre de archivo: `{Root}_{Escala}.wav` o `{Root}_{Acorde}.wav`
+
+### 🟢 v17.1 — AudioEngine revertido a solo Synth
+**Archivo:** [`src/lib/audioEngine.ts`](src/lib/audioEngine.ts)
+
+#### Cambio: Eliminado Tone.Sampler, solo PolySynth
+- **InstrumentId:** Ahora solo `'proPiano' | 'campana'` (2 opciones)
+- **INSTRUMENT_MAP:** Solo SynthInstrumentConfig (sin SamplerInstrumentConfig)
+- **Motivo:** Simplificar motor de audio, eliminar dependencias de samples externos
 
 ### 🟢 v16.1 — Ruta Samples Actualizada + Parámetros Ajustados
 **Archivos:** [`src/lib/audioEngine.ts`](src/lib/audioEngine.ts), `public/samples/pad piano/README.txt`
@@ -213,6 +248,8 @@ const DIATONIC_MAP = { 0: 0, 2: 1, 3: 2, 7: 4, 8: 5 };
 
 | Versión | Fecha | Descripción |
 |---------|-------|-------------|
+| v17.0 | 2026-06-08 | Exportar Audio a WAV — Tone.Offline, funciones exportScale/exportChord, botón UI |
+| v17.1 | 2026-06-08 | AudioEngine revertido a solo Synth (proPiano + campana), eliminado Tone.Sampler |
 | v16.1 | 2026-06-08 | Ruta samples → `pad piano/` + parámetros ajustados a características reales (48kHz, ~2s, ~60kbps) |
 | v16.0 | 2026-06-08 | Piano Sampler con Tone.Sampler — Samples reales C4-C5 (13 notas .ogg) + 3 instrumentos disponibles |
 | v15.3 | 2026-06-07 | Campana implementada + Piano Profesional permanecen |
@@ -293,15 +330,16 @@ const DIATONIC_MAP = { 0: 0, 2: 1, 3: 2, 7: 4, 8: 5 };
 | Archivo | Propósito | Líneas aprox. |
 |---------|-----------|---------------|
 | [`src/lib/musicLogic.ts`](src/lib/musicLogic.ts) | Cerebro musical: 39+ escalas, enarmonía, acordes, intervalos, SCALE_EXTENDED_INFO | ~1816 |
+| [`src/lib/audioEngine.ts`](src/lib/audioEngine.ts) | AudioEngine singleton con Tone.js: PolySynth + Compresor + FeedbackDelay + Filter + Reverb (2 instrumentos: proPiano, campana) — v17.1 solo Synth | ~361 |
+| [`src/lib/audioExport.ts`](src/lib/audioExport.ts) | Exportar audio a WAV con Tone.Offline: exportScale(), exportChord(), audioBufferToWav() — v17.0 | ~200 |
 | [`src/components/CircleOfNotes.tsx`](src/components/CircleOfNotes.tsx) | SVG interactivo con matemática trigonométrica, gradientes, filtros neón | ~734 |
-| [`src/App.tsx`](src/App.tsx) | Componente principal + motor audio + UI + gestión de estados del acorde | ~659 |
-| [`src/lib/audioEngine.ts`](src/lib/audioEngine.ts) | AudioEngine singleton con Tone.js: Sampler + PolySynth + Compresor + FeedbackDelay + Filter + Reverb (3 instrumentos: pianoSampler, proPiano, campana) — v16.1 params ajustados | ~500 |
+| [`src/App.tsx`](src/App.tsx) | Componente principal + motor audio + UI + gestión de estados del acorde + botón Exportar | ~1076 |
 | [`src/test-enharmony.ts`](src/test-enharmony.ts) | Validación enarmonía: 166 tests (12 raíces × escalas clave) | ~804 |
 | [`src/index.css`](src/index.css) | Tailwind v4 + custom properties + animaciones CSS | - |
 
 ### Dependencias
 - **React 19** + **TypeScript** + **Vite 7** — Framework base
-- **Tone.js v15.1.22** — Motor de audio (PolySynth + Compresor + FeedbackDelay + LFO + Filter + Reverb). Sampler con samples 48kHz/mono/vorbis
+- **Tone.js v15.1.22** — Motor de audio (PolySynth + Compresor + FeedbackDelay + LFO + Filter + Reverb + Offline)
 - **Tailwind CSS v4** — Estilos (NOTA: no genera grid/gap)
 - **Lucide React** — Iconos
 
@@ -312,14 +350,18 @@ const DIATONIC_MAP = { 0: 0, 2: 1, 3: 2, 7: 4, 8: 5 };
 Si continúas en un nuevo chat, copia este archivo PROJECT_MEMORY.md completo.
 
 ### Resumen Rápido para la IA:
-SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas musicales SVG interactivo con modo escala y modo acorde.
+SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas musicales SVG interactivo con modo escala y modo acorde + exportar audio a WAV.
 
-**Estado Actual (v16.1):**
+**Estado Actual (v17.0):**
 
-**AudioEngine v16.1:** 3 instrumentos con cadena de efectos Tone.js:
-- `pianoSampler`: **Tone.Sampler** (samples reales C4-C5, 13 notas .ogg en `/samples/pad piano/`) → Filter(lowpass 4.5kHz Q:0.3) → Reverb(2.0s/cálido) — DEFAULT
+**AudioEngine v17.1:** 2 instrumentos Synth (eliminado Tone.Sampler):
 - `proPiano`: PolySynth(triangle) → Filter(lowpass 7kHz) → Compressor(-24dB/3:1) → FeedbackDelay(0.143s, wet 7%) + Reverb(1.8s)
 - `campana`: PolySynth(sine) → Filter(lowpass 3.5kHz Q:0.4) → Reverb(3.2s/catedral)
+
+**Exportar Audio v17.0:** Módulo `src/lib/audioExport.ts` con Tone.Offline para renderizar WAV sin reproducir en tiempo real
+- Funciones: `exportScale()`, `exportChord()`, `audioBufferToWav()`
+- Formato: WAV PCM 16-bit, 48kHz sample rate
+- Botón "Exportar WAV" en UI debajo de Play/Stop
 
 **Samples de audio:** `public/samples/pad piano/` — 13 notas OGG (C4 a C5), 48kHz/mono/vorbis, ~2s duración, ~60kbps bitrate. Ver `README.txt`.
 
