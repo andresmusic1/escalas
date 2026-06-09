@@ -193,6 +193,12 @@ interface CircleOfNotesProps {
   chordActiveLineIndex?: number;
   /** Indica que el trazado del acorde terminó y debe mostrarse el impacto rojo fijo */
   chordPolygonComplete?: boolean;
+
+  // === v23.0: Color personalizado para polígonos ===
+  /** Color personalizado para el relleno del polígono de escala (override) */
+  scalePolygonColor?: string;
+  /** Color personalizado para el overlay del polígono de acorde */
+  chordPolygonColor?: string;
 }
 
 /**
@@ -273,6 +279,9 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
   chordDrawnLineIndices = [],
   chordActiveLineIndex = -1,
   chordPolygonComplete = false, // v13.3: polígono persistente como marca de agua
+  // === v23.0: Color personalizado para polígonos ===
+  scalePolygonColor,
+  chordPolygonColor,
 }) => {
   
   // === v22.1: Escala dinámica para modo quiz (3x tamaño) ===
@@ -396,7 +405,10 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
 
   const polygonStroke = polygonComplete ? "#dc2626" : "#dfc47f";
 
-  const polygonFill = polygonComplete ? "#420092" : "url(#polygonGradient)";
+  // === v23.0: Usar color personalizado si se provee, sino fallback al comportamiento default ===
+  const polygonFill = polygonComplete
+    ? (scalePolygonColor || '#420092')
+    : (scalePolygonColor || "url(#polygonGradient)");
   const polygonFilter = "none";
 
   // === Calcular strokeDasharray total para el polígono neón ===
@@ -587,6 +599,23 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
                 .join(' ')}
               fill="url(#chordGradient)"
               fillOpacity={chordPolygonComplete ? 1 : 0}
+              stroke="none"
+              shape-rendering="geometricPrecision"
+              style={{ transition: 'fill-opacity 0.4s ease-out' }}
+            />
+          )}
+
+          {/* === v23.0: Overlay de color personalizado para acorde === */}
+          {chordNotes && chordNotes.length >= 3 && chordPolygonColor && (
+            <polygon
+              points={chordNotes
+                .map((noteIdx) => {
+                  const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
+                  return `${pos.x},${pos.y}`;
+                })
+                .join(' ')}
+              fill={chordPolygonColor}
+              fillOpacity={chordPolygonComplete ? 0.35 : 0}
               stroke="none"
               shape-rendering="geometricPrecision"
               style={{ transition: 'fill-opacity 0.4s ease-out' }}

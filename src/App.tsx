@@ -118,6 +118,10 @@ const App: React.FC = () => {
   // === Estado de exportación audio (v17.0) ===
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
+  // === v23.0: Color personalizado para polígonos ===
+  const [scalePolygonColor, setScalePolygonColor] = useState<string>('#dc2626');
+  const [chordPolygonColor, setChordPolygonColor] = useState<string>('#1e3a5f');
+
   // === Estado del modo Quiz (v22.0) ===
   const [appMode, setAppMode] = useState<AppMode>('scale');
   const [quizState, setQuizState] = useState<QuizState | null>(null);
@@ -717,46 +721,49 @@ const App: React.FC = () => {
           </h1>
         </header>
 
-        {/* === Botones de Modo (v22.0) === */}
-        <div className="flex justify-center gap-4 mb-6">
+        {/* === Botones de Modo (v22.0 — botones independientes con bordes redondeados) === */}
+        <div className="flex justify-center gap-2 mb-6">
           <button
             onClick={() => { setAppMode('scale'); setIsChordMode(false); }}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all border ${
-              appMode === 'scale' ? 'scale-105' : ''
+            className={`px-6 py-2.5 rounded-xl font-bold transition-all border-2 ${
+              appMode === 'scale' ? 'scale-105 shadow-lg' : ''
             }`}
             style={{
+              fontSize: '16.7px',
               background: appMode === 'scale' ? 'var(--color-gold)' : '#4a4430',
               color: appMode === 'scale' ? '#12161c' : 'var(--color-gold)',
-              borderColor: appMode === 'scale' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.3)',
+              borderColor: appMode === 'scale' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.4)',
             }}
           >
             🎹 Modo Escala
           </button>
           <button
             onClick={() => { setAppMode('chord'); setIsChordMode(true); }}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all border ${
-              appMode === 'chord' ? 'scale-105' : ''
+            className={`px-6 py-2.5 rounded-xl font-bold transition-all border-2 ${
+              appMode === 'chord' ? 'scale-105 shadow-lg' : ''
             }`}
             style={{
+              fontSize: '16.7px',
               background: appMode === 'chord' ? 'var(--color-gold)' : '#4a4430',
               color: appMode === 'chord' ? '#12161c' : 'var(--color-gold)',
-              borderColor: appMode === 'chord' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.3)',
+              borderColor: appMode === 'chord' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.4)',
             }}
           >
             🎵 Modo Acorde
           </button>
           <button
             onClick={() => { setAppMode('quiz'); setIsChordMode(false); setQuizState(null); }}
-            className={`px-6 py-2.5 rounded-lg font-semibold transition-all border flex items-center gap-2 ${
-              appMode === 'quiz' ? 'scale-105' : ''
+            className={`px-6 py-2.5 rounded-xl font-bold transition-all border-2 ${
+              appMode === 'quiz' ? 'scale-105 shadow-lg' : ''
             }`}
             style={{
+              fontSize: '16.7px',
               background: appMode === 'quiz' ? 'var(--color-gold)' : '#4a4430',
               color: appMode === 'quiz' ? '#12161c' : 'var(--color-gold)',
-              borderColor: appMode === 'quiz' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.3)',
+              borderColor: appMode === 'quiz' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.4)',
             }}
           >
-            <Brain size={18} /> Modo Quiz
+            🧠 Modo Quiz
           </button>
         </div>
 
@@ -970,28 +977,6 @@ const App: React.FC = () => {
             {/* === CONTROLES FLOTANTES TOP-CENTER (conserva estilos originales) === */}
             <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-2 z-20 w-full max-w-[640px]">
               
-              {/* Toggle Escala / Acorde — conserva clases mode-button originales */}
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <button
-                    onClick={() => switchPlaybackMode('scale')}
-                    className={`mode-button transform active:scale-95 flex flex-col items-center justify-center gap-1
-                      ${!isChordMode ? 'active-scale' : 'inactive'}`}
-                  >
-                    Modo Escala
-                  </button>
-                </div>
-                <div className="flex-1 relative">
-                  <button
-                    onClick={() => switchPlaybackMode('chord')}
-                    className={`mode-button transform active:scale-95 flex flex-col items-center justify-center gap-1
-                      ${isChordMode ? 'active-chord' : 'inactive'}`}
-                  >
-                    Modo Acorde
-                  </button>
-                </div>
-              </div>
-              
               {/* === Contenido Dinámico: MODO ACORDE (Grados + Triada/Cuatriada + Play + Info) === */}
               {isChordMode && scaleIndices.length > 0 && (
                 <div className="flex flex-col gap-4 w-full animate-in fade-in duration-300">
@@ -1097,6 +1082,9 @@ const App: React.FC = () => {
                 chordDrawnLineIndices={chordDrawnLineIndices}
                 chordActiveLineIndex={chordActiveLineIndex}
                 chordPolygonComplete={chordPolygonComplete} // v13.3: polígono persistente como marca de agua
+                // === v23.0: Color personalizado para polígonos ===
+                scalePolygonColor={appMode === 'scale' ? scalePolygonColor : undefined}
+                chordPolygonColor={appMode === 'chord' ? chordPolygonColor : undefined}
                 onNoteClick={(noteIndex: number) => {
                   if (isChordMode) {
                     handleChordNoteClick(noteIndex);
@@ -1107,9 +1095,9 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* === Navegación anterior/siguiente escala (v23.0) === */}
+            {/* === Navegación anterior/siguiente escala + color picker (v23.0) === */}
             {(appMode === 'scale' || appMode === 'chord') && allScalesFlat.length > 1 && (
-              <div className="flex justify-center items-center gap-6 mt-8 mb-4">
+              <div className="flex justify-center items-center gap-4 mt-8 mb-4">
                 {/* Botón Anterior */}
                 <button
                   onClick={handlePrevScale}
@@ -1144,6 +1132,50 @@ const App: React.FC = () => {
                 >
                   <ChevronRight size={36} />
                 </button>
+                
+                {/* Input color para polígono de escala (solo modo escala) */}
+                {appMode === 'scale' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Escala Color</span>
+                  <input
+                    type="color"
+                    value={scalePolygonColor}
+                    onInput={(e) => setScalePolygonColor(e.currentTarget.value)}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '0px',
+                      cursor: 'pointer',
+                      backgroundColor: scalePolygonColor,
+                      border: 'none',
+                      padding: '0',
+                    }}
+                      title="Color del polígono de escala"
+                  />
+                  </div>
+                )}
+                
+                {/* Input color para polígono de acorde (solo modo acorde) — v23.0 */}
+                {appMode === 'chord' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Acorde Color</span>
+                    <input
+                      type="color"
+                      value={chordPolygonColor}
+                      onInput={(e) => setChordPolygonColor(e.currentTarget.value)}
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '0px',
+                        cursor: 'pointer',
+                        backgroundColor: chordPolygonColor,
+                        border: 'none',
+                        padding: '0',
+                      }}
+                      title="Color del polígono de acorde"
+                    />
+                  </div>
+                )}
               </div>
             )}
 

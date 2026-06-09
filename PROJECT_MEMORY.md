@@ -1,12 +1,88 @@
 # 🎵 Escalas Musicales Interactivas - PROJECT MEMORY
 
-> **Última actualización:** 2026-06-08 (Sesión: v22.2 — Fix renderizado quiz visual + audio quiz pendiente)
-> **Versión del proyecto:** v22.2
+> **Última actualización:** 2026-06-09 (Sesión: v23.2 — Revertido fondo de botones de modo a dorado original)
+> **Versión del proyecto:** v23.2
 > **Estado tests:** ✅ TypeScript compilation OK | ⚠️ Quiz auditivo no funciona
 
 ---
 
 ## 📌 ESTADO ACTUAL DEL PROYECTO (Junio 2026)
+
+### 🟢 v23.1 — Etiquetas de Texto para Botones de Color
+**Archivos:**
+- [`src/App.tsx`](src/App.tsx) — UI labels antes de inputs color
+
+#### Cambio principal: Agregado texto descriptivo antes de cada input color picker
+
+**Modo escala (líneas ~1155-1175):**
+```tsx
+<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+  <span className="text-[var(--color-gold)] text-sm font-semibold">Escala Color</span>
+  <input type="color" ... />
+</div>
+```
+
+**Modo acorde (líneas ~1177-1197):**
+```tsx
+<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+  <span className="text-[var(--color-gold)] text-sm font-semibold">Acorde Color</span>
+  <input type="color" ... />
+</div>
+```
+
+**Resultado visual:**
+```
+[Escala Color] [🎨 picker]   (modo escala)
+[Acorde Color] [🎨 picker]  (modo acorde)
+```
+
+- Contenedor flex con `gap: '6px'` para espaciado
+- Texto en dorado (`--color-gold`), fuente pequeña, semibold
+- `whiteSpace: 'nowrap'` evita que el texto se rompa en dos líneas
+- Sin cambios funcionales — solo mejora de UX/UI
+
+---
+
+### 🟢 v23.0 — Botón Color Personalizado para Polígono de Escala y Acorde
+**Archivos:**
+- [`src/App.tsx`](src/App.tsx) — Estados, UI inputs color, pass props a CircleOfNotes
+- [`src/components/CircleOfNotes.tsx`](src/components/CircleOfNotes.tsx) — Props scalePolygonColor/chordPolygonColor
+
+#### Cambio principal: Input `<input type="color">` independiente para modo escala y modo acorde
+
+**Estados nuevos en App.tsx (líneas ~121-123):**
+```typescript
+const [scalePolygonColor, setScalePolygonColor] = useState<string>('#dc2626');
+const [chordPolygonColor, setChordPolygonColor] = useState<string>('#1e3a5f');
+```
+
+**UI (líneas ~1155-1189 en App.tsx):**
+- Inputs color ubicados en el mismo renglón que nombre de escala + botones ◀ ▶
+- Tamaño: 48px × 48px (ajustable manualmente)
+- `onInput` para actualización en tiempo real mientras se arrastra el picker
+- Sin borde (`border: 'none'`)
+- Solo visible en modo escala (`appMode === 'scale'`) o acorde (`appMode === 'chord'`)
+- Oculto en modo quiz
+
+**CircleOfNotes.tsx — Props nuevas:**
+```typescript
+scalePolygonColor?: string;   // Override fill del polígono de escala
+chordPolygonColor?: string;   // Overlay semitransparente (35%) sobre gradiente de acorde
+```
+
+**polygonFill dinámico (línea ~408):** Usa `scalePolygonColor` si se provee, fallback a gradiente original.
+
+**Overlay de acorde (líneas ~607-620):** Nuevo polygon con `fill={chordPolygonColor}` y `fillOpacity: 0.35` renderizado entre relleno del acorde y neón.
+
+**Persistencia:** Solo durante la sesión (sin localStorage). Al recargar, vuelve a colores por defecto.
+
+#### Archivos modificados en esta sesión:
+- `src/App.tsx` — +2 estados useState, UI inputs color (~40 líneas nuevas), props a CircleOfNotes
+- `src/components/CircleOfNotes.tsx` — +2 props opcionales, polygonFill dinámico, overlay acorde (~15 líneas nuevas/modificadas)
+
+---
+
+### 🟢 v22.2 — Fix Renderizado Quiz Visual + Círculo 3x Tamaño (Audio Quiz Pendiente)
 
 ### 🟢 v22.1 — Fix Bug Renderizado Modo Quiz + Limpieza Documentación
 **Archivo:** [`src/components/QuizPanel.tsx`](src/components/QuizPanel.tsx), [`src/App.tsx`](src/App.tsx)
@@ -916,6 +992,15 @@ SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas mus
 --color-gold: #dfc47f;
 --color-red: #e53e3e;
 ```
+
+### 🏁 Cierre de sesión actual (v23.1):
+- **Versión alcanzada:** v23.1
+- **Cambio principal:** Etiquetas de texto "Escala Color" / "Acorde Color" antes de cada input picker
+- **UI (líneas ~1155-1197 en App.tsx):** Contenedor flex con `gap: '6px'`, texto dorado `var(--color-gold)`, `whiteSpace: 'nowrap'`
+- **CircleOfNotes:** Sin cambios — props intactas
+- **Tests:** ✅ TypeScript compilation OK
+- **Estado:** ⚠️ Botón "Acorde Color" existe en código (línea 1177-1197) pero NO aparece en navegador en modo acorde. Posible problema de cache Vite dev server o HMR no funcionando.
+- **Pendiente para mañana:** Reiniciar dev server + limpiar cache del navegador + verificar DOM
 
 ### 🏁 Cierre de sesión anterior (v21.6):
 - **Versión alcanzada:** v21.6
