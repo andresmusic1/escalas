@@ -199,6 +199,12 @@ interface CircleOfNotesProps {
   scalePolygonColor?: string;
   /** Color personalizado para el overlay del polígono de acorde */
   chordPolygonColor?: string;
+  /** Color personalizado para el borde/stroke del polígono de escala */
+  borderColor?: string;
+  
+  // === v24.0: Color personalizado para línea neón animada (trazado nota por nota) ===
+  /** Color personalizado para la línea neón animada que viaja nota por nota */
+  neonLineColor?: string;
 }
 
 /**
@@ -279,10 +285,13 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
   chordDrawnLineIndices = [],
   chordActiveLineIndex = -1,
   chordPolygonComplete = false, // v13.3: polígono persistente como marca de agua
-  // === v23.0: Color personalizado para polígonos ===
-  scalePolygonColor,
-  chordPolygonColor,
-}) => {
+   // === v23.0: Color personalizado para polígonos ===
+   scalePolygonColor,
+   chordPolygonColor,
+   borderColor,
+   // === v24.0: Color personalizado para línea neón animada ===
+   neonLineColor,
+ }) => {
   
   // === v22.1: Escala dinámica para modo quiz (3x tamaño) ===
   const effectiveSize = SVG_SIZE * scaleCircle;
@@ -403,7 +412,11 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
       ? 0.18 + completedRatio * 0.22
       : 0.35;
 
-  const polygonStroke = polygonComplete ? "#dc2626" : "#dfc47f";
+   // === v23.0: Usar borderColor personalizado si se provee, sino fallback al comportamiento default ===
+   const polygonStroke = borderColor || (polygonComplete ? "#dc2626" : "#dfc47f");
+
+  // === v24.0: Color de la línea neón animada (trazado nota por nota) ===
+  const effectiveNeonColor = neonLineColor || '#ffffff';
 
   // === v23.0: Usar color personalizado si se provee, sino fallback al comportamiento default ===
   const polygonFill = polygonComplete
@@ -570,7 +583,7 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
             key={`neon-polygon-${reproductionKey}`}
             points={polygonPoints}
             fill="none"
-            stroke="#ffffff"
+            stroke={effectiveNeonColor}
             strokeWidth="2.5"
             strokeLinejoin="round"
             strokeDasharray={`${totalPolygonPerimeter} ${totalPolygonPerimeter}`}
@@ -635,7 +648,7 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
                 })
                 .join(' ')}
               fill="none"
-              stroke="#ffffff"
+              stroke={effectiveNeonColor}
               strokeWidth="2.0"
               strokeLinejoin="round"
               strokeDasharray={`${chordPerimeter} ${chordPerimeter}`}

@@ -121,6 +121,10 @@ const App: React.FC = () => {
   // === v23.0: Color personalizado para polígonos ===
   const [scalePolygonColor, setScalePolygonColor] = useState<string>('#dc2626');
   const [chordPolygonColor, setChordPolygonColor] = useState<string>('#1e3a5f');
+  const [borderColor, setBorderColor] = useState<string>('#dfc47f');
+  
+  // === v24.0: Color personalizado para línea neón animada (trazado nota por nota) ===
+  const [neonLineColor, setNeonLineColor] = useState<string>('#ffffff');
 
   // === Estado del modo Quiz (v22.0) ===
   const [appMode, setAppMode] = useState<AppMode>('scale');
@@ -1085,6 +1089,9 @@ const App: React.FC = () => {
                 // === v23.0: Color personalizado para polígonos ===
                 scalePolygonColor={appMode === 'scale' ? scalePolygonColor : undefined}
                 chordPolygonColor={appMode === 'chord' ? chordPolygonColor : undefined}
+                borderColor={borderColor}
+                // === v24.0: Color personalizado para línea neón animada ===
+                neonLineColor={neonLineColor}
                 onNoteClick={(noteIndex: number) => {
                   if (isChordMode) {
                     handleChordNoteClick(noteIndex);
@@ -1133,48 +1140,104 @@ const App: React.FC = () => {
                   <ChevronRight size={36} />
                 </button>
                 
-                {/* Input color para polígono de escala (solo modo escala) */}
+                {/* Color picker para modo Escala — inline en mismo renglón, sin separadores | */}
                 {appMode === 'scale' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Escala Color</span>
-                  <input
-                    type="color"
-                    value={scalePolygonColor}
-                    onInput={(e) => setScalePolygonColor(e.currentTarget.value)}
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '0px',
-                      cursor: 'pointer',
-                      backgroundColor: scalePolygonColor,
-                      border: 'none',
-                      padding: '0',
-                    }}
-                      title="Color del polígono de escala"
-                  />
-                  </div>
+                  <>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                      <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Escala Color</span>
+                      <input
+                        type="color"
+                        value={scalePolygonColor}
+                        onInput={(e) => setScalePolygonColor(e.currentTarget.value)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '0px',
+                          cursor: 'pointer',
+                          backgroundColor: scalePolygonColor,
+                          border: 'none',
+                          padding: '0',
+                          lineHeight: 1,
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                        }}
+                        title="Color del polígono de escala"
+                      />
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                      <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Borde Color</span>
+                      <input
+                        type="color"
+                        value={neonLineColor}
+                        onInput={(e) => setNeonLineColor(e.currentTarget.value)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '0px',
+                          cursor: 'pointer',
+                          backgroundColor: neonLineColor,
+                          border: 'none',
+                          padding: '0',
+                          lineHeight: 1,
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                        }}
+                        title="Color del borde de la escala"
+                      />
+                    </span>
+                  </>
                 )}
                 
-                {/* Input color para polígono de acorde (solo modo acorde) — v23.0 */}
+                {/* Color picker para modo Acorde — inline en mismo renglón, sin separadores | */}
                 {appMode === 'chord' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Acorde Color</span>
-                    <input
-                      type="color"
-                      value={chordPolygonColor}
-                      onInput={(e) => setChordPolygonColor(e.currentTarget.value)}
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '0px',
-                        cursor: 'pointer',
-                        backgroundColor: chordPolygonColor,
-                        border: 'none',
-                        padding: '0',
-                      }}
-                      title="Color del polígono de acorde"
-                    />
-                  </div>
+                  <>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                      <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Acorde Color</span>
+                      <input
+                        type="color"
+                        value={chordPolygonColor}
+                        onInput={(e) => setChordPolygonColor(e.currentTarget.value)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '0px',
+                          cursor: 'pointer',
+                          backgroundColor: chordPolygonColor,
+                          border: 'none',
+                          padding: '0',
+                          lineHeight: 1,
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                        }}
+                        title="Color del polígono de acorde"
+                      />
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                      <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Borde Color</span>
+                      <input
+                        type="color"
+                        value={neonLineColor}
+                        onInput={(e) => setNeonLineColor(e.currentTarget.value)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '0px',
+                          cursor: 'pointer',
+                          backgroundColor: neonLineColor,
+                          border: 'none',
+                          padding: '0',
+                          lineHeight: 1,
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                        }}
+                        title="Color del borde del acorde"
+                      />
+                    </span>
+                  </>
                 )}
               </div>
             )}

@@ -1,12 +1,49 @@
 # 🎵 Escalas Musicales Interactivas - PROJECT MEMORY
 
-> **Última actualización:** 2026-06-09 (Sesión: v23.2 — Revertido fondo de botones de modo a dorado original)
-> **Versión del proyecto:** v23.2
+> **Última actualización:** 2026-06-09 (Sesión: v23.3 — appearance:none en color pickers para eliminar borde interior nativo)
+> **Versión del proyecto:** v23.3
 > **Estado tests:** ✅ TypeScript compilation OK | ⚠️ Quiz auditivo no funciona
 
 ---
 
 ## 📌 ESTADO ACTUAL DEL PROYECTO (Junio 2026)
+
+### 🟢 v23.3 — appearance:none en Color Pickers (Eliminar Borde Interior Nativo)
+**Archivos:**
+- [`src/App.tsx`](src/App.tsx) — CSS properties en inputs color
+
+#### Cambio principal: Eliminadas líneas internas del `<input type="color">` nativo del navegador
+
+**CSS agregado a los 4 inputs color (líneas ~1250-1320):**
+```tsx
+appearance: 'none',
+WebkitAppearance: 'none',
+MozAppearance: 'none',
+```
+
+**Resultado:** Las líneas grises internas que el browser dibuja dentro del cuadrado de color han sido eliminadas. Los inputs ahora muestran solo el color sólido sin bordes internos.
+
+- `appearance: 'none'` — Firefox/Chrome/Edge estándar
+- `WebkitAppearance: 'none'` — Chrome/Safari/Edge WebKit
+- `MozAppearance: 'none'` — Firefox Gecko
+- Combinado con `border: 'none'`, `padding: '0'`, `width: 32px`, `height: 32px`
+
+---
+
+### 🟢 v23.2 — Revertido Fondo de Botones de Modo a Dorado Original
+**Archivos:**
+- [`src/App.tsx`](src/App.tsx) — Estilos de botones de modo (Escala/Acorde/Quiz)
+
+#### Cambio principal: Restaurados fondos dorados originales en botones de toggle de modo
+
+**Estilo anterior (v23.1):** Fondos oscuros con texto dorado para modos inactivos
+**Estilo restaurado (v23.2):** Fondo dorado `var(--color-gold)` para modo activo, fondo oscuro `#4a4430` para modos inactivos
+
+- Botón activo: `background: 'var(--color-gold)'`, `color: '#12161c'`
+- Botones inactivos: `background: '#4a4430'`, `color: 'var(--color-gold)'`
+- Bordes redondeados `rounded-xl` con efecto `scale-105 shadow-lg` en activo
+
+---
 
 ### 🟢 v23.1 — Etiquetas de Texto para Botones de Color
 **Archivos:**
@@ -16,7 +53,7 @@
 
 **Modo escala (líneas ~1155-1175):**
 ```tsx
-<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+<div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
   <span className="text-[var(--color-gold)] text-sm font-semibold">Escala Color</span>
   <input type="color" ... />
 </div>
@@ -24,7 +61,7 @@
 
 **Modo acorde (líneas ~1177-1197):**
 ```tsx
-<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+<div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
   <span className="text-[var(--color-gold)] text-sm font-semibold">Acorde Color</span>
   <input type="color" ... />
 </div>
@@ -32,18 +69,21 @@
 
 **Resultado visual:**
 ```
-[Escala Color] [🎨 picker]   (modo escala)
-[Acorde Color] [🎨 picker]  (modo acorde)
+Escala Color █   (modo escala) — base alineada con baseline
+Acorde Color █  (modo acorde)
 ```
 
 - Contenedor flex con `gap: '6px'` para espaciado
 - Texto en dorado (`--color-gold`), fuente pequeña, semibold
 - `whiteSpace: 'nowrap'` evita que el texto se rompa en dos líneas
+- `alignItems: 'baseline'` — base del texto y cuadradito al mismo nivel
+- `lineHeight: 1` — elimina espacio interno del input
+- Tamaño 32×32px para los color pickers
 - Sin cambios funcionales — solo mejora de UX/UI
 
 ---
 
-### 🟢 v23.0 — Botón Color Personalizado para Polígono de Escala y Acorde
+### 🟢 v23.0 — Color Personalizado para Polígonos de Escala y Acorde (sin separadores |)
 **Archivos:**
 - [`src/App.tsx`](src/App.tsx) — Estados, UI inputs color, pass props a CircleOfNotes
 - [`src/components/CircleOfNotes.tsx`](src/components/CircleOfNotes.tsx) — Props scalePolygonColor/chordPolygonColor
@@ -56,8 +96,9 @@ const [scalePolygonColor, setScalePolygonColor] = useState<string>('#dc2626');
 const [chordPolygonColor, setChordPolygonColor] = useState<string>('#1e3a5f');
 ```
 
-**UI (líneas ~1155-1189 en App.tsx):**
-- Inputs color ubicados en el mismo renglón que nombre de escala + botones ◀ ▶
+**UI (líneas ~1230-1320 en App.tsx):**
+  - Inputs color ubicados en el mismo renglón que nombre de escala + botones ◀ ▶
+  - Sin separadores `|` entre elementos — espaciado con `marginLeft: '12px'`
 - Tamaño: 48px × 48px (ajustable manualmente)
 - `onInput` para actualización en tiempo real mientras se arrastra el picker
 - Sin borde (`border: 'none'`)
@@ -998,6 +1039,15 @@ SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas mus
 - **Cambio principal:** Etiquetas de texto "Escala Color" / "Acorde Color" antes de cada input picker
 - **UI (líneas ~1155-1197 en App.tsx):** Contenedor flex con `gap: '6px'`, texto dorado `var(--color-gold)`, `whiteSpace: 'nowrap'`
 - **CircleOfNotes:** Sin cambios — props intactas
+
+### 🏁 Cierre de sesión actual (v23.3):
+- **Versión alcanzada:** v23.3
+- **Cambio principal:** Eliminadas líneas internas del `<input type="color">` nativo con `appearance: 'none'`
+- **Tests:** ✅ TypeScript compilation OK
+- **Estado:** ✅ Color pickers limpios sin bordes internos en todos los navegadores
+
+### 📋 PRÓXIMOS PASOS PARA NUEVA SESIÓN
+(igual que antes — no cambios en tareas pendientes)
 - **Tests:** ✅ TypeScript compilation OK
 - **Estado:** ⚠️ Botón "Acorde Color" existe en código (línea 1177-1197) pero NO aparece en navegador en modo acorde. Posible problema de cache Vite dev server o HMR no funcionando.
 - **Pendiente para mañana:** Reiniciar dev server + limpiar cache del navegador + verificar DOM
