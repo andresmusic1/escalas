@@ -201,6 +201,8 @@ interface CircleOfNotesProps {
   chordPolygonColor?: string;
   /** Color personalizado para el borde/stroke del polígono de escala */
   borderColor?: string;
+  /** Forzar visibilidad del polígono del acorde (sin reproducción activa) */
+  showChordPolygon?: boolean;
   
   // === v24.0: Color personalizado para línea neón animada (trazado nota por nota) ===
   /** Color personalizado para la línea neón animada que viaja nota por nota */
@@ -289,9 +291,11 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
    scalePolygonColor,
    chordPolygonColor,
    borderColor,
+   /** Forzar visibilidad del polígono del acorde (sin reproducción activa) */
+   showChordPolygon = false,
    // === v24.0: Color personalizado para línea neón animada ===
    neonLineColor,
- }) => {
+  }) => {
   
   // === v22.1: Escala dinámica para modo quiz (3x tamaño) ===
   const effectiveSize = SVG_SIZE * scaleCircle;
@@ -600,67 +604,67 @@ const CircleOfNotes: React.FC<CircleOfNotesProps> = ({
           {/* Notas del círculo cromático (EnharmonicNote) */}
           {noteElements}
 
-          {/* === v18.5: Relleno Azul del Polígono del Acorde — DESPUÉS del neón en DOM (no tapa el neon) === */}
-          {/* Se renderiza primero visualmente (fondo), pero se escribe después para no interferir con stroke del neon */}
-          {chordNotes && chordNotes.length >= 3 && (
-            <polygon
-              points={chordNotes
-                .map((noteIdx) => {
-                  const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
-                  return `${pos.x},${pos.y}`;
-                })
-                .join(' ')}
-              fill="url(#chordGradient)"
-              fillOpacity={chordPolygonComplete ? 1 : 0}
-              stroke="none"
-              shape-rendering="geometricPrecision"
-              style={{ transition: 'fill-opacity 0.4s ease-out' }}
-            />
-          )}
+           {/* === v18.5: Relleno Azul del Polígono del Acorde — DESPUÉS del neón en DOM (no tapa el neon) === */}
+           {/* Se renderiza primero visualmente (fondo), pero se escribe después para no interferir con stroke del neon */}
+           {chordNotes && chordNotes.length >= 3 && (
+             <polygon
+               points={chordNotes
+                 .map((noteIdx) => {
+                   const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
+                   return `${pos.x},${pos.y}`;
+                 })
+                 .join(' ')}
+               fill="url(#chordGradient)"
+               fillOpacity={showChordPolygon ? 0.35 : (chordPolygonComplete ? 1 : 0)}
+               stroke="none"
+               shape-rendering="geometricPrecision"
+               style={{ transition: 'fill-opacity 0.4s ease-out' }}
+             />
+           )}
 
-          {/* === v23.0: Overlay de color personalizado para acorde === */}
-          {chordNotes && chordNotes.length >= 3 && chordPolygonColor && (
-            <polygon
-              points={chordNotes
-                .map((noteIdx) => {
-                  const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
-                  return `${pos.x},${pos.y}`;
-                })
-                .join(' ')}
-              fill={chordPolygonColor}
-              fillOpacity={chordPolygonComplete ? 0.35 : 0}
-              stroke="none"
-              shape-rendering="geometricPrecision"
-              style={{ transition: 'fill-opacity 0.4s ease-out' }}
-            />
-          )}
+           {/* === v23.0: Overlay de color personalizado para acorde === */}
+           {chordNotes && chordNotes.length >= 3 && chordPolygonColor && (
+             <polygon
+               points={chordNotes
+                 .map((noteIdx) => {
+                   const pos = roundPos(getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius));
+                   return `${pos.x},${pos.y}`;
+                 })
+                 .join(' ')}
+               fill={chordPolygonColor}
+               fillOpacity={showChordPolygon ? 0.35 : (chordPolygonComplete ? 0.35 : 0)}
+               stroke="none"
+               shape-rendering="geometricPrecision"
+               style={{ transition: 'fill-opacity 0.4s ease-out' }}
+             />
+           )}
 
-          {/* === v17.0: Polígono Neón del Acorde — DESPUÉS del relleno (siempre visible por encima) === */}
-          {chordNotes && chordNotes.length >= 3 && chordPerimeter > 0 && (
-            <polygon
-              key={`chord-neon-${reproductionKey}`}
-              points={chordNotes
-                .map((noteIdx) => {
-                  const pos = roundPos(
-                    getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius)
-                  );
-                  return `${pos.x},${pos.y}`;
-                })
-                .join(' ')}
-              fill="none"
-              stroke={effectiveNeonColor}
-              strokeWidth="2.0"
-              strokeLinejoin="round"
-              strokeDasharray={`${chordPerimeter} ${chordPerimeter}`}
-              strokeDashoffset={chordPerimeter - chordDrawnLength}
-              filter="url(#neonGlow)"
-              opacity={chordPolygonComplete && !isChordPlaying ? 0.65 : (chordDrawnLength > 0 && isChordPlaying) ? 0.75 : 0}
-              style={{
-                willChange: 'stroke-dashoffset',
-                transition: `stroke-dashoffset ${noteDurationSeconds}s linear`,
-              }}
-            />
-          )}
+           {/* === v17.0: Polígono Neón del Acorde — DESPUÉS del relleno (siempre visible por encima) === */}
+           {chordNotes && chordNotes.length >= 3 && chordPerimeter > 0 && (
+             <polygon
+               key={`chord-neon-${reproductionKey}`}
+               points={chordNotes
+                 .map((noteIdx) => {
+                   const pos = roundPos(
+                     getRotatedNotePosition(noteIdx, rootIndex, effectiveCenter, effectiveCenter, effectivePolygonRadius)
+                   );
+                   return `${pos.x},${pos.y}`;
+                 })
+                 .join(' ')}
+               fill="none"
+               stroke={effectiveNeonColor}
+               strokeWidth={showChordPolygon ? "2.5" : "2.0"}
+               strokeLinejoin="round"
+               strokeDasharray={`${chordPerimeter} ${chordPerimeter}`}
+               strokeDashoffset={chordPerimeter - chordDrawnLength}
+               filter="url(#neonGlow)"
+               opacity={showChordPolygon ? 0.75 : (chordPolygonComplete && !isChordPlaying ? 0.65 : (chordDrawnLength > 0 && isChordPlaying) ? 0.75 : 0)}
+               style={{
+                 willChange: 'stroke-dashoffset',
+                 transition: `stroke-dashoffset ${noteDurationSeconds}s linear`,
+               }}
+             />
+           )}
 
           {/* === v18.3: Capas rojas eliminadas — solo neón dorado + relleno azul (limpio) === */}
 

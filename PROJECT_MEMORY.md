@@ -1046,6 +1046,84 @@ SPA **React 19 + TypeScript + Vite 7 + Tone.js** — Visualizador de escalas mus
 - **Tests:** ✅ TypeScript compilation OK
 - **Estado:** ✅ Color pickers limpios sin bordes internos en todos los navegadores
 
+### 🏁 Cierre de sesión actual (v23.4 — 2026-09-06):
+- **Versión alcanzada:** v23.4
+- **Cambio principal:** Eliminación completa del Modo Quiz (v22.0) y reestructuración de UI a solo 2 modos (Escala/Acorde)
+- **Archivos eliminados:**
+  - `src/lib/quizLogic.ts` (~570 líneas) — generación de preguntas, scoring
+  - `src/lib/quizAudio.ts` (~180 líneas) — reproducción audio quiz
+  - `src/components/QuizPanel.tsx` (~660 líneas) — panel UI del quiz
+  - `src/components/QuizResult.tsx` (~200 líneas) — resultados finales
+- **Cambios en App.tsx:**
+  - Eliminado import de `Brain` de lucide-react
+  - Eliminados imports de módulos de quiz: `QuizPanel`, `quizLogic`
+  - Eliminado estado `quizState` y tipo `AppMode` (reemplazado por `'scale' | 'chord'`)
+  - Eliminados handlers: `handleStartQuiz`, `handleQuizAnswer`, `handleQuizRestart`
+  - Eliminado botón "🧠 Modo Quiz" del toggle de modos
+  - Eliminado renderizado condicional basado en `appMode === 'quiz'`
+  - **Botones Modo Escala/Acorde:** fontSize fijado a 23px con separador "||" entre ellos
+- **UI actual:** Toggle simple con 2 botones (🎹 Modo Escala || 🎵 Modo Acorde) debajo del header
+- **Tests:** ✅ TypeScript compilation OK — sin errores
+- **Estado:** ✅ App funcionando correctamente con solo modos Escala y Acorde
+
+## 🛠️ MCP SERVERS INSTALADOS
+
+### Puppeteer + Tavily Server (v1.0 — 2026-09-06)
+**Ubicación:** `C:\Users\ANDRES G. STUDIO\Documents\Cline\MCP\puppeteer-server\`
+**Tecnología:** TypeScript + Puppeteer + Tavily Search API
+
+#### Características:
+- 🌐 **Automación de Navegador**: Control completo del browser usando Puppeteer (Chrome/Chromium)
+- 🔍 **Búsqueda Web Inteligente**: Integración con Tavily API para búsquiones web relevantes
+- 📸 **Capturas de Pantalla**: Screenshot de páginas completas o parciales
+- 📄 **Análisis de Contenido**: Extraer HTML y texto de cualquier página
+- ⌨️ **Interacción Completa**: Click, fill, press_key, evaluate JS
+
+#### Herramientas MCP:
+| Herramienta | Descripción |
+|-------------|------------|
+| `navigate` | Navegar a URL |
+| `click` | Click en elemento CSS |
+| `fill` | Rellenar campo de texto |
+| `press_key` | Presionar tecla |
+| `scroll` | Scroll página |
+| `evaluate` | Ejecutar JavaScript |
+| `get_content` | Obtener HTML de página/elemento |
+| `get_text` | Obtener texto de página/elemento |
+| `screenshot` | Captura de pantalla |
+| `new_page` | Crear nueva pestaña |
+| `switch_page` | Cambiar a otra pestaña |
+| `list_pages` | Listar todas las pestañas |
+| `go_back` | Navegar hacia atrás |
+| `go_forward` | Navegar hacia adelante |
+| `close_page` | Cerrar pestaña |
+| `tavily_search` | Buscar en la web con IA (Tavily API) |
+
+#### Configuración en Cline:
+1. Abrir Cline → Settings → MCP Servers
+2. Agregar nuevo servidor:
+   - **Name**: `puppeteer-tavily`
+   - **Command**: `node C:/Users/ANDRES G. STUDIO/Documents/Cline/MCP/puppeteer-server/dist/index.js`
+   - **Environment** (opcional): `TAVILY_API_KEY=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`
+
+#### Diferencias con Playwright:
+| Característica | Puppeteer + Tavily | Playwright |
+|----------------|-------------------|------------|
+| Browser | Chrome/Chromium principal | Chrome, Firefox, Safari, Edge |
+| Rendimiento | Más ligero para Chrome | Multi-browser |
+| Tavily Integration | ✅ Incluido (búsqueda web) | ❌ No incluido |
+| API REST | ✅ Tavily search directo | ❌ No tiene |
+
+#### Recomendaciones de Uso:
+- **Usar Puppeteer + Tavily** cuando necesites búsqueda web integrada
+- **Usar Playwright** cuando necesites multi-browser (Firefox, Safari)
+- **Combinar ambos** para proyectos que requieren máxima flexibilidad
+
+#### Documentación completa:
+Ver [`README.md`](C:/Users/ANDRES G. STUDIO/Documents/Cline/MCP/puppeteer-server/README.md) para ejemplos de uso detallados y troubleshooting.
+
+---
+
 ### 📋 PRÓXIMOS PASOS PARA NUEVA SESIÓN
 (igual que antes — no cambios en tareas pendientes)
 - **Tests:** ✅ TypeScript compilation OK

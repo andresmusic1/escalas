@@ -30,12 +30,10 @@ import {
   type MusicalNote,
 } from './lib/musicLogic';
 import type { ScaleName } from './lib/musicLogic';
-import { Play, Pause, Music, Download, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Pause, Music, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AudioEngine, INSTRUMENT_PRESETS, type InstrumentId } from './lib/audioEngine';
 import { exportScale, exportChord, downloadBlob, generateFilename } from './lib/audioExport';
 import * as Tone from 'tone';
-import { QuizPanel } from './components/QuizPanel';
-import { generateQuizSession, answerQuestion, type QuizState, type AppMode, type HintType } from './lib/quizLogic';
 
 // ============================================================
 // Estado inicial de la aplicación
@@ -126,9 +124,8 @@ const App: React.FC = () => {
   // === v24.0: Color personalizado para línea neón animada (trazado nota por nota) ===
   const [neonLineColor, setNeonLineColor] = useState<string>('#ffffff');
 
-  // === Estado del modo Quiz (v22.0) ===
-  const [appMode, setAppMode] = useState<AppMode>('scale');
-  const [quizState, setQuizState] = useState<QuizState | null>(null);
+  // === Modo de la aplicación ('scale' | 'chord') ===
+  const [appMode, setAppMode] = useState<'scale' | 'chord'>('scale');
 
   // === Estado del sonido ===
   const [bpm, setBpm] = useState<number>(DEFAULT_BPM);
@@ -681,37 +678,6 @@ const App: React.FC = () => {
     setSelectedScale(newScale);
   }, [isPlaying, isChordPlaying, appMode, allScalesFlat, selectedScale]);
 
-  // === Manejadores del Quiz (v22.0) ===
-  
-  /** Inicia una sesión de quiz */
-  const handleStartQuiz = useCallback((playerName: string, totalQuestions: number, category: 'scale' | 'chord') => {
-    const config = { playerName, totalQuestions, category };
-    const initialState = generateQuizSession(config);
-    setQuizState(initialState);
-    setIsPlaying(false);
-    setIsChordPlaying(false);
-    stopPlayback();
-  }, [stopPlayback]);
-
-  /** Maneja una respuesta en el quiz */
-  const handleQuizAnswer = useCallback((optionId: string, hintsUsed: HintType[], usedAudioHelp: boolean) => {
-    if (!quizState || !quizState.currentQuestion) return;
-    
-    const result = answerQuestion(quizState, optionId, hintsUsed, usedAudioHelp);
-    setQuizState(result.newState);
-    
-    // Si el quiz terminó, no hacer nada más
-    if (result.newState.isSessionComplete) {
-      setIsPlaying(false);
-      stopPlayback();
-    }
-  }, [quizState, stopPlayback]);
-
-  /** Reinicia el quiz */
-  const handleQuizRestart = useCallback(() => {
-    setQuizState(null);
-  }, []);
-
   // === Render ===
   return (
     <>
@@ -725,15 +691,15 @@ const App: React.FC = () => {
           </h1>
         </header>
 
-        {/* === Botones de Modo (v22.0 — botones independientes con bordes redondeados) === */}
-        <div className="flex justify-center gap-2 mb-6">
+        {/* === Botones de Modo (v22.0 — botones independientes con bordes redondeados + separador ||) === */}
+        <div className="flex justify-center gap-2 mb-6 items-center">
           <button
             onClick={() => { setAppMode('scale'); setIsChordMode(false); }}
             className={`px-6 py-2.5 rounded-xl font-bold transition-all border-2 ${
               appMode === 'scale' ? 'scale-105 shadow-lg' : ''
             }`}
             style={{
-              fontSize: '16.7px',
+              fontSize: '23px',
               background: appMode === 'scale' ? 'var(--color-gold)' : '#4a4430',
               color: appMode === 'scale' ? '#12161c' : 'var(--color-gold)',
               borderColor: appMode === 'scale' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.4)',
@@ -741,13 +707,14 @@ const App: React.FC = () => {
           >
             🎹 Modo Escala
           </button>
+          <span className="font-bold" style={{ color: 'var(--color-gold)', fontSize: '23px' }}>||</span>
           <button
             onClick={() => { setAppMode('chord'); setIsChordMode(true); }}
             className={`px-6 py-2.5 rounded-xl font-bold transition-all border-2 ${
               appMode === 'chord' ? 'scale-105 shadow-lg' : ''
             }`}
             style={{
-              fontSize: '16.7px',
+              fontSize: '23px',
               background: appMode === 'chord' ? 'var(--color-gold)' : '#4a4430',
               color: appMode === 'chord' ? '#12161c' : 'var(--color-gold)',
               borderColor: appMode === 'chord' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.4)',
@@ -755,45 +722,10 @@ const App: React.FC = () => {
           >
             🎵 Modo Acorde
           </button>
-          <button
-            onClick={() => { setAppMode('quiz'); setIsChordMode(false); setQuizState(null); }}
-            className={`px-6 py-2.5 rounded-xl font-bold transition-all border-2 ${
-              appMode === 'quiz' ? 'scale-105 shadow-lg' : ''
-            }`}
-            style={{
-              fontSize: '16.7px',
-              background: appMode === 'quiz' ? 'var(--color-gold)' : '#4a4430',
-              color: appMode === 'quiz' ? '#12161c' : 'var(--color-gold)',
-              borderColor: appMode === 'quiz' ? 'var(--color-gold)' : 'rgba(223, 196, 127, 0.4)',
-            }}
-          >
-            🧠 Modo Quiz
-          </button>
         </div>
 
-        {/* === Renderizado condicional: Quiz vs Normal === */}
-        {appMode === 'quiz' ? (
-          <>
-            {/* Footer para modo quiz */}
-            <QuizPanel
-              quizState={quizState}
-              onAnswer={handleQuizAnswer}
-              onStartSession={handleStartQuiz}
-              onRestart={handleQuizRestart}
-              bpm={bpm}
-              instrument={selectedInstrument as any}
-            />
-            <footer className="w-full text-center py-4 border-t border-gray-800 mt-6">
-              <div className="flex flex-col items-center gap-1 text-xs" style={{ color: 'var(--color-gold)' }}>
-                <p className="text-[var(--color-gold)]/60">Creado por Andrés Eduardo Garzón Polanía</p>
-                <p className="text-[var(--color-gold)]/60">andresmusic1@gmail.com · +57 3153159379</p>
-              </div>
-            </footer>
-          </>
-        ) : (
-          <>
-          <div className="w-full max-w-6xl two-column-layout">
-          
+        {/* === Contenedor principal de la app === */}
+        <div className="w-full max-w-6xl two-column-layout">
           {/* ============================================================
               COLUMNA IZQUIERDA: Controles y configuraciones
               ============================================================ */}
@@ -1102,9 +1034,9 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* === Navegación anterior/siguiente escala + color picker (v23.0) === */}
+            {/* === Navegación anterior/siguiente escala + color picker (v23.0) — centrado horizontalmente === */}
             {(appMode === 'scale' || appMode === 'chord') && allScalesFlat.length > 1 && (
-              <div className="flex justify-center items-center gap-4 mt-8 mb-4">
+              <div className="flex justify-center items-center gap-4 mt-8 mb-4" style={{ width: '100%', textAlign: 'center' }}>
                 {/* Botón Anterior */}
                 <button
                   onClick={handlePrevScale}
@@ -1140,10 +1072,10 @@ const App: React.FC = () => {
                   <ChevronRight size={36} />
                 </button>
                 
-                {/* Color picker para modo Escala — inline en mismo renglón, sin separadores | */}
+                {/* Color picker para modo Escala — inline centrado */}
                 {appMode === 'scale' && (
-                  <>
-                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: '12px', marginLeft: '12px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
                       <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Escala Color</span>
                       <input
                         type="color"
@@ -1165,7 +1097,7 @@ const App: React.FC = () => {
                         title="Color del polígono de escala"
                       />
                     </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
                       <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Borde Color</span>
                       <input
                         type="color"
@@ -1187,13 +1119,13 @@ const App: React.FC = () => {
                         title="Color del borde de la escala"
                       />
                     </span>
-                  </>
+                  </div>
                 )}
                 
-                {/* Color picker para modo Acorde — inline en mismo renglón, sin separadores | */}
+                {/* Color picker para modo Acorde — inline centrado */}
                 {appMode === 'chord' && (
-                  <>
-                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: '12px', marginLeft: '12px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
                       <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Acorde Color</span>
                       <input
                         type="color"
@@ -1215,7 +1147,7 @@ const App: React.FC = () => {
                         title="Color del polígono de acorde"
                       />
                     </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px', marginLeft: '12px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '6px' }}>
                       <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Borde Color</span>
                       <input
                         type="color"
@@ -1237,79 +1169,108 @@ const App: React.FC = () => {
                         title="Color del borde del acorde"
                       />
                     </span>
-                  </>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* === Tempo + Reproducción (debajo del círculo) === */}
-            <div className="tempo-bar w-full max-w-[550px] mt-6">
-              {/* Renglón 1: Textos y BPM */}
-              <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
-                <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Tempo</span>
-                <div className="flex items-center gap-2">
-                  <span className="badge" style={{ color: bpm < 60 ? '#60a5fa' : bpm < 80 ? '#4ade80' : '#f87171', backgroundColor: bpm < 60 ? 'rgba(96,165,250,0.15)' : bpm < 80 ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)' }}>
-                    {bpm < 60 ? 'Lento' : bpm < 80 ? 'Moderado' : 'Rápido'}
-                  </span>
-                  <span className="bpm-value">{bpm}</span>
-                  <span className="text-sm" style={{ color: '#a0a8b8' }}>BPM</span>
+            {/* === Contenedor de dos columnas: Tempo + Audio lado a lado === */}
+            <div className="flex gap-4 w-full max-w-[550px] mt-6">
+              
+              {/* === Bloque Izquierdo: Tempo + Reproducción === */}
+              <div className="tempo-bar flex-1 mt-6">
+                {/* Renglón 1: Textos y BPM */}
+                <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
+                  <span className="text-[var(--color-gold)] text-sm font-semibold" style={{ whiteSpace: 'nowrap' }}>Tempo</span>
+                  <div className="flex items-center gap-2">
+                    <span className="badge" style={{ color: bpm < 60 ? '#60a5fa' : bpm < 80 ? '#4ade80' : '#f87171', backgroundColor: bpm < 60 ? 'rgba(96,165,250,0.15)' : bpm < 80 ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)' }}>
+                      {bpm < 60 ? 'Lento' : bpm < 80 ? 'Moderado' : 'Rápido'}
+                    </span>
+                    <span className="bpm-value">{bpm}</span>
+                    <span className="text-sm" style={{ color: '#a0a8b8' }}>BPM</span>
+                  </div>
+                </div>
+
+                {/* Renglón 2: Slider con - y + */}
+                <div className="flex items-center" style={{ gap: '8px' }}>
+                  <button
+                    onClick={() => setBpm(Math.max(MIN_BPM, bpm - 5))}
+                    className="py-1 px-2.5 rounded bg-[#4a4430] hover:bg-[#5a5440] text-[var(--color-gold)] transition-all border border-[var(--color-gold)]/30 font-bold"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="range"
+                    min={MIN_BPM}
+                    max={MAX_BPM}
+                    step={5}
+                    value={bpm}
+                    onChange={(e) => setBpm(Number(e.target.value))}
+                    className="flex-grow accent-[var(--color-gold)]"
+                  />
+                  <button
+                    onClick={() => setBpm(Math.min(MAX_BPM, bpm + 5))}
+                    className="py-1 px-2.5 rounded bg-[#4a4430] hover:bg-[#5a5440] text-[var(--color-gold)] transition-all border border-[var(--color-gold)]/30 font-bold"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Renglón 3: Botón Play centrado debajo del BPM */}
+                <div className="flex justify-center mt-2">
+                  {!isChordMode ? (
+                    <button
+                      onClick={isPlaying ? stopPlayback : playScale}
+                      disabled={!scaleData || scaleIndices.length === 0}
+                      className={`play-button chord-play-button ${isPlaying ? 'play-button-playing' : ''}`}
+                    >
+                      <div className="play-icon">
+                        {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+                      </div>
+                      <div className="play-text">
+                        {isPlaying ? 'Stop' : 'Play'}
+                      </div>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={isChordPlaying ? stopPlayback : playChordTravel}
+                      disabled={!selectedChord || selectedChord.notes.length === 0}
+                      className={`play-button chord-play-button ${isChordPlaying ? 'play-button-playing' : ''}`}
+                    >
+                      <div className="play-icon">
+                        {isChordPlaying ? <Pause size={24} /> : <Play size={24} />}
+                      </div>
+                      <div className="play-text">
+                        {isChordPlaying ? 'Stop' : 'Play'}
+                      </div>
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Renglón 2: Slider con - y + */}
-              <div className="flex items-center" style={{ gap: '8px' }}>
-                <button
-                  onClick={() => setBpm(Math.max(MIN_BPM, bpm - 5))}
-                  className="py-1 px-2.5 rounded bg-[#4a4430] hover:bg-[#5a5440] text-[var(--color-gold)] transition-all border border-[var(--color-gold)]/30 font-bold"
-                >
-                  −
-                </button>
-                <input
-                  type="range"
-                  min={MIN_BPM}
-                  max={MAX_BPM}
-                  step={5}
-                  value={bpm}
-                  onChange={(e) => setBpm(Number(e.target.value))}
-                  className="flex-grow accent-[var(--color-gold)]"
-                />
-                <button
-                  onClick={() => setBpm(Math.min(MAX_BPM, bpm + 5))}
-                  className="py-1 px-2.5 rounded bg-[#4a4430] hover:bg-[#5a5440] text-[var(--color-gold)] transition-all border border-[var(--color-gold)]/30 font-bold"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Renglón 3: Botón Play centrado debajo del BPM */}
-              <div className="flex justify-center mt-2">
-                {!isChordMode ? (
-                  <button
-                    onClick={isPlaying ? stopPlayback : playScale}
-                    disabled={!scaleData || scaleIndices.length === 0}
-                    className={`play-button chord-play-button ${isPlaying ? 'play-button-playing' : ''}`}
+              {/* === Bloque Derecho: Audio (Volumen + Sonido) === */}
+              <div className="section-card flex flex-col gap-3 w-[250px] mt-6">
+                <h3 className="text-sm font-semibold text-[var(--color-gold)] text-center">🎧 Audio</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs w-16" style={{ color: '#a0a8b8' }}>Volumen:</span>
+                  <input
+                    type="range" min="-30" max="0" value={volume}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    className="w-full accent-[var(--color-gold)]"
+                  />
+                  <span className="text-xs text-[var(--color-gold)] font-mono">{volume}dB</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs w-16" style={{ color: '#a0a8b8' }}>Sonido:</span>
+                  <select
+                    value={selectedInstrument}
+                    onChange={(e) => setSelectedInstrument(e.target.value as InstrumentId)}
+                    className="w-full bg-[#4a4430] text-[var(--color-gold)] text-xs p-1.5 rounded outline-none border border-[var(--color-gold)]/30"
                   >
-                    <div className="play-icon">
-                      {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-                    </div>
-                    <div className="play-text">
-                      {isPlaying ? 'Stop' : 'Play'}
-                    </div>
-                  </button>
-                ) : (
-                  <button
-                    onClick={isChordPlaying ? stopPlayback : playChordTravel}
-                    disabled={!selectedChord || selectedChord.notes.length === 0}
-                    className={`play-button chord-play-button ${isChordPlaying ? 'play-button-playing' : ''}`}
-                  >
-                    <div className="play-icon">
-                      {isChordPlaying ? <Pause size={24} /> : <Play size={24} />}
-                    </div>
-                    <div className="play-text">
-                      {isChordPlaying ? 'Stop' : 'Play'}
-                    </div>
-                  </button>
-                )}
+                    <option value="proPiano">🎹 Piano Profesional</option>
+                    <option value="campana">🔔 Campana</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1347,42 +1308,15 @@ const App: React.FC = () => {
                 </button>
               )}
             </div>
-
-            {/* === Controles de Audio (debajo del círculo) === */}
-            <div className="section-card flex flex-col gap-3 w-full max-w-[550px] mt-6">
-              <h3 className="text-sm font-semibold text-[var(--color-gold)] text-center">🎧 Audio</h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs w-16" style={{ color: '#a0a8b8' }}>Volumen:</span>
-                <input
-                  type="range" min="-30" max="0" value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
-                  className="w-full accent-[var(--color-gold)]"
-                />
-                <span className="text-xs text-[var(--color-gold)] font-mono">{volume}dB</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs w-16" style={{ color: '#a0a8b8' }}>Sonido:</span>
-                <select
-                  value={selectedInstrument}
-                  onChange={(e) => setSelectedInstrument(e.target.value as InstrumentId)}
-                  className="w-full bg-[#4a4430] text-[var(--color-gold)] text-xs p-1.5 rounded outline-none border border-[var(--color-gold)]/30"
-                >
-                  <option value="proPiano">🎹 Piano Profesional</option>
-                  <option value="campana">🔔 Campana</option>
-                </select>
-              </div>
-            </div>
+          </div>  {/* fin columna izquierda */}
+        </div>  {/* fin two-column-layout */}
+        <footer className="w-full text-center py-4 border-t border-gray-800 mt-6">
+          <div className="flex flex-col items-center gap-1 text-xs" style={{ color: 'var(--color-gold)' }}>
+            <p className="text-[var(--color-gold)]/60">Creado por Andrés Eduardo Garzón Polanía</p>
+            <p className="text-[var(--color-gold)]/60">andresmusic1@gmail.com · +57 3153159379</p>
           </div>
-          </div>  {/* Fin two-column-layout */}
-          <footer className="w-full text-center py-4 border-t border-gray-800 mt-6">
-            <div className="flex flex-col items-center gap-1 text-xs" style={{ color: 'var(--color-gold)' }}>
-              <p className="text-[var(--color-gold)]/60">Creado por Andrés Eduardo Garzón Polanía</p>
-              <p className="text-[var(--color-gold)]/60">andresmusic1@gmail.com · +57 3153159379</p>
-            </div>
-          </footer>
-          </>
-        )}
-      </div> {/* Fin contenedor principal */}
+        </footer>
+      </div>  {/* fin main container div */}
     </>
   );
 };
