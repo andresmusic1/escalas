@@ -1,0 +1,11 @@
+```json
+   {
+     "redirects": [
+       {
+         "source": "/(.*)",
+         "destination": "https://aulasonido.blog/escalas/",
+         "permanent": true
+       }
+     ]
+   }
+   ```
